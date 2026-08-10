@@ -8,7 +8,7 @@
             <DockPanel>
                 <TextBlock Text="{Binding Loc[App.Title]}" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="LangButton" Content="EN / 中文" Click="LangButton_Click" Margin="0,0,10,0" Padding="10,4"/>
+                    <Button x:Name="LangButton" Content="{Binding Loc[Nav.LangToggle]}" Click="LangButton_Click" Margin="0,0,10,0" Padding="10,4"/>
                     <Button Content="{Binding Loc[Export.Json]}" Click="ExportJson_Click" Margin="0,0,6,0" Padding="10,4"/>
                     <Button Content="{Binding Loc[Export.Txt]}" Click="ExportTxt_Click" Padding="10,4"/>
                 </StackPanel>

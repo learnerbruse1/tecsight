@@ -61,7 +61,7 @@ public partial class DetailPage : UserControl
         var loc = vm.Loc;
         var m = vm.Snapshot.Metrics;
         var invRows = vm.Snapshot.Inventory.MemoryModules
-            .Select(mm => Row($"{mm.Manufacturer ?? loc["Common.Unknown"]} {mm.PartNumber ?? ""}".Trim(), $"{Format.Bytes(ParseBytes(mm.CapacityBytes))}  {mm.Speed ?? "?"} MHz"))
+            .Select(mm => Row($"{mm.Manufacturer ?? loc["Common.Unknown"]} {mm.PartNumber ?? ""}".Trim(), $"{Format.Bytes(ParseBytes(mm.CapacityBytes))}  {mm.Speed ?? loc["Common.NotAvailable"]} MHz"))
             .ToList();
         if (invRows.Count == 0) invRows.Add(Row(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
         var liveRows = new List<DetailRow>

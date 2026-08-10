@@ -30,7 +30,7 @@ dotnet publish src/TecSight.App -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -o publish
 ```
 
-Output: `publish/TecSight.App.exe` (self-contained single file, no install needed).
+Output: `publish/TecSight.App.exe` (self-contained single file, no install needed). You can also run `scripts/publish.ps1`.
 
 ## Tech Stack
 

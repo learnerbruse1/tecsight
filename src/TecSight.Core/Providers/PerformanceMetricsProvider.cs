@@ -6,7 +6,7 @@ namespace TecSight.Core;
 
 /// <summary>
 /// 运行指标真实数据源：性能计数器 + 原生 API，免管理员权限。
-/// CPU/内存/磁盘 I/O/网络/GPU 占用；任一计数器不可用时该指标降级为 null。
+/// CPU/内存/磁盘 I/O/网络/GPU 占用/电池；任一计数器不可用时该指标降级为 null。
 /// </summary>
 public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposable
 {
@@ -35,6 +35,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     {
         var ts = DateTimeOffset.Now;
         var (total, used) = MemoryBytes();
+        var (batteryPercent, batteryCharging) = BatteryStatus();
         return new LiveMetrics
         {
             Timestamp = ts,
@@ -47,26 +48,40 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             GpuUsagePercent = Clamp01(ReadGpuUsage()),
             NetworkDownloadBps = ReadNetworkDown(),
             NetworkUploadBps = ReadNetworkUp(),
+            BatteryChargePercent = batteryPercent,
+            BatteryIsCharging = batteryCharging,
         };
     }
 
+    /// <summary>
+    /// GPU 占用：按引擎类型分组求和，取最繁忙的引擎类型（通常为 3D）。
+    /// 避免把 3D+Video+Copy 等并行引擎简单相加导致超过 100%。
+    /// </summary>
     private double? ReadGpuUsage()
     {
         try
         {
             RefreshGpuCountersIfStale();
-            var sum = 0.0;
+            var sums = new Dictionary<string, double>();
             foreach (var c in _gpuEngines)
             {
                 var v = c.NextValue();
-                if (v > 0) sum += v;
+                if (v <= 0) continue;
+                var type = ExtractEngineType(c.InstanceName);
+                sums[type] = sums.GetValueOrDefault(type) + v;
             }
-            return sum;
+            return sums.Count == 0 ? 0 : sums.Values.Max();
         }
         catch
         {
             return null;
         }
+    }
+
+    private static string ExtractEngineType(string instance)
+    {
+        var idx = instance.LastIndexOf("engtype_", StringComparison.OrdinalIgnoreCase);
+        return idx >= 0 ? instance[(idx + 8)..] : instance;
     }
 
     private double? ReadNetworkDown()
@@ -235,6 +250,41 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             if (!GlobalMemoryStatusEx(ref m) || m.ullTotalPhys == 0) return (null, null);
             var used = (double)(m.ullTotalPhys - m.ullAvailPhys);
             return (m.ullTotalPhys, used);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    // ---- 原生 API：GetSystemPowerStatus（电池电量与充电状态） ----
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SystemPowerStatus
+    {
+        public byte AclLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public uint BatteryLifeTime;
+        public uint BatteryFullLifeTime;
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern bool GetSystemPowerStatus(out SystemPowerStatus sps);
+
+    private static (double? Percent, bool? Charging) BatteryStatus()
+    {
+        try
+        {
+            if (!GetSystemPowerStatus(out var sps)) return (null, null);
+            double? percent = sps.BatteryLifePercent == 255 ? null : sps.BatteryLifePercent;
+            bool? charging = sps.AclLineStatus switch
+            {
+                1 => (sps.BatteryFlag & 0x08) != 0, // 接电源：8 = 充电中
+                0 => false,                         // 用电池
+                _ => null,
+            };
+            return (percent, charging);
         }
         catch
         {

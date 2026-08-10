@@ -33,6 +33,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Nav.Network", "网络", "Network");
         Both("Nav.Battery", "电池", "Battery");
         Both("Nav.Sensors", "传感器", "Sensors");
+        Both("Nav.LangToggle", "EN / 中文", "中文 / EN");
 
         Both("Common.NotAvailable", "不可用", "N/A");
         Both("Common.Unknown", "未知", "Unknown");

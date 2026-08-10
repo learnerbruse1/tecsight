@@ -30,7 +30,7 @@ dotnet publish src/TecSight.App -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -o publish
 ```
 
-发布产物：`publish/TecSight.App.exe`（自包含单文件，免安装）。
+发布产物：`publish/TecSight.App.exe`（自包含单文件，免安装）。也可直接运行 `scripts/publish.ps1`。
 
 ## 技术栈
 

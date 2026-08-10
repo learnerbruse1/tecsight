@@ -83,8 +83,15 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static BatteryInfo? QueryBattery()
     {
-        return SafeQuery("SELECT Name FROM Win32_Battery", row => new BatteryInfo(GetString(row, "Name"), null, null)).FirstOrDefault();
+        var battery = SafeQuery("SELECT Name, DesignCapacity FROM Win32_Battery",
+            row => new BatteryInfo(GetString(row, "Name"), ToWh(GetInt(row, "DesignCapacity")), null)).FirstOrDefault();
+        if (battery is null) return null;
+        var full = SafeQuery("root\\wmi", "SELECT FullyChargedCapacity FROM BatteryFullChargedCapacity",
+            row => ToWh(GetInt(row, "FullyChargedCapacity"))).FirstOrDefault();
+        return battery with { FullChargeCapacityWh = full };
     }
+
+    private static double? ToWh(int? mWh) => mWh is int v && v > 0 ? v / 1000.0 : null;
 
     // ---- helpers ----
     private static List<T> SafeQuery<T>(string query, Func<ManagementBaseObject, T> map)
@@ -92,6 +99,19 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         try
         {
             using var searcher = new ManagementObjectSearcher(query);
+            return searcher.Get().Cast<ManagementBaseObject>().Select(map).ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static List<T> SafeQuery<T>(string scope, string query, Func<ManagementBaseObject, T> map)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(scope, query);
             return searcher.Get().Cast<ManagementBaseObject>().Select(map).ToList();
         }
         catch
