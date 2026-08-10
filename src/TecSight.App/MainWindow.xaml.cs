@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     private readonly OverviewPage _overview = new();
     private readonly DetailPage _detail = new();
     private readonly ProcessesPage _processes = new();
+    private readonly PeripheralsPage _peripherals = new();
     private readonly DispatcherTimer _timer;
     private readonly PerformanceMetricsProvider _metricsProvider = new();
     private readonly LibreHardwareSensorProvider _sensorProvider = new();
@@ -97,6 +98,9 @@ public partial class MainWindow : Window
             case AppPage.Processes:
                 _processes.Update(_vm);
                 break;
+            case AppPage.Peripherals:
+                _peripherals.Update(_vm);
+                break;
             default:
                 _detail.Update(_vm);
                 break;
@@ -111,9 +115,10 @@ public partial class MainWindow : Window
         {
             AppPage.Overview => _overview,
             AppPage.Processes => _processes,
+            AppPage.Peripherals => _peripherals,
             _ => _detail,
         };
-        if (page != AppPage.Overview && page != AppPage.Processes)
+        if (page != AppPage.Overview && page != AppPage.Processes && page != AppPage.Peripherals)
         {
             _detail.SetCategory(page);
         }

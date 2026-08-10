@@ -34,7 +34,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Nav.Battery", "电池", "Battery");
         Both("Nav.Sensors", "传感器", "Sensors");
                 Both("Nav.Processes", "进程", "Processes");
-        Both("Nav.Other", "其他设备", "Other Devices");
+                Both("Nav.Other", "其他设备", "Other Devices");
+        Both("Nav.Peripherals", "外设", "Peripherals");
         Both("Nav.LangToggle", "EN / 中文", "中文 / EN");
 
         Both("Common.NotAvailable", "不可用", "N/A");
@@ -101,7 +102,26 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.OsArch", "系统架构", "OS Architecture");
         Both("Detail.FirmwareType", "固件类型", "Firmware Type");
         Both("Detail.InstallDate", "安装日期", "Installed");
-        Both("Detail.LastBoot", "上次启动", "Last Boot");
+                Both("Detail.LastBoot", "上次启动", "Last Boot");
+        Both("Peripheral.Refresh", "刷新", "Refresh");
+        Both("Peripheral.UpdatedAt", "更新于", "Updated");
+        Both("Peripheral.Count", "共", "Total");
+        Both("Peripheral.storage", "存储设备", "Storage");
+        Both("Peripheral.keyboard", "键盘", "Keyboards");
+        Both("Peripheral.mouse", "鼠标", "Mice");
+        Both("Peripheral.camera", "摄像头", "Cameras");
+        Both("Peripheral.audio", "音频设备", "Audio");
+        Both("Peripheral.display", "显示器", "Displays");
+        Both("Peripheral.network", "网络设备", "Network");
+        Both("Peripheral.bluetooth", "蓝牙设备", "Bluetooth");
+        Both("Peripheral.printer", "打印机", "Printers");
+        Both("Peripheral.cardreader", "读卡器", "Card Readers");
+        Both("Peripheral.gamepad", "游戏手柄", "Gamepads");
+        Both("Peripheral.phone", "手机/便携设备", "Phones");
+        Both("Peripheral.hub", "USB 集线器", "USB Hubs");
+        Both("Peripheral.input", "输入设备", "Input");
+        Both("Peripheral.usb", "USB 设备", "USB Devices");
+        Both("Peripheral.other", "其他设备", "Other");
         Both("Detail.Manufacturer", "制造商", "Manufacturer");
         Both("Detail.Capacity", "容量", "Capacity");
         Both("Detail.Speed", "频率", "Speed");

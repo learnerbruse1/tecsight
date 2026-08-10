@@ -6,7 +6,7 @@ using TecSight.Core.Models;
 
 namespace TecSight.App;
 
-public enum AppPage { Overview, Cpu, Memory, Disk, Gpu, Motherboard, Network, Battery, Sensors, Processes, OtherDevices }
+public enum AppPage { Overview, Cpu, Memory, Disk, Gpu, Motherboard, Network, Battery, Sensors, Processes, OtherDevices, Peripherals }
 
 /// <summary>导航项。</summary>
 public sealed record NavEntry(AppPage Page, string Title);
@@ -70,6 +70,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             new NavEntry(AppPage.Sensors, Loc["Nav.Sensors"]),
             new NavEntry(AppPage.Processes, Loc["Nav.Processes"]),
             new NavEntry(AppPage.OtherDevices, Loc["Nav.Other"]),
+            new NavEntry(AppPage.Peripherals, Loc["Nav.Peripherals"]),
         ];
     }
 
