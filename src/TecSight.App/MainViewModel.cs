@@ -52,7 +52,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RebuildNav();
     }
 
-    public void Refresh() => Snapshot = Collector.Collect();
+    /// <summary>由后台采集线程投递新快照到 UI 线程后调用。</summary>
+    public void SetSnapshot(Snapshot snapshot) => Snapshot = snapshot;
 
     private void RebuildNav()
     {

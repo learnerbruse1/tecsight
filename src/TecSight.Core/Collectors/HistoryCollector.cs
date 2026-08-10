@@ -2,11 +2,12 @@ using TecSight.Core.Models;
 
 namespace TecSight.Core;
 
-/// <summary>运行指标环形缓冲：按容量裁剪，保留最近 N 个采样点。</summary>
+/// <summary>运行指标环形缓冲：按容量裁剪，保留最近 N 个采样点。线程安全。</summary>
 public sealed class LiveMetricsHistory
 {
     private readonly int _capacity;
     private readonly Queue<LiveMetrics> _items = new();
+    private readonly object _gate = new();
 
     public LiveMetricsHistory(int capacity)
     {
@@ -16,14 +17,26 @@ public sealed class LiveMetricsHistory
 
     public void Add(LiveMetrics metrics)
     {
-        _items.Enqueue(metrics);
-        while (_items.Count > _capacity)
+        lock (_gate)
         {
-            _items.Dequeue();
+            _items.Enqueue(metrics);
+            while (_items.Count > _capacity)
+            {
+                _items.Dequeue();
+            }
         }
     }
 
-    public IReadOnlyList<LiveMetrics> Snapshots => _items.ToArray();
+    public IReadOnlyList<LiveMetrics> Snapshots
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _items.ToArray();
+            }
+        }
+    }
 }
 
 /// <summary>带历史的快照采集装饰器：每次采集后把运行指标追加到环形缓冲。</summary>

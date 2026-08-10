@@ -7,190 +7,225 @@ namespace TecSight.App.Pages;
 public partial class DetailPage : UserControl
 {
     private AppPage _category = AppPage.Cpu;
+    private PageModel? _model;
+
+    private sealed class PageModel
+    {
+        public required AppPage Category { get; init; }
+        public required List<DetailSection> Sections { get; init; }
+        public required List<LiveRow> MetricRows { get; init; }
+        public required List<Func<MainViewModel, string>> MetricFormatters { get; init; }
+        public required List<Func<LiveMetrics, double?>?> MetricSelectors { get; init; }
+        public required Func<MainViewModel, IReadOnlyList<SensorReading>> SensorFilter { get; init; }
+        public required List<LiveRow> SensorRows { get; init; }
+    }
 
     public DetailPage() => InitializeComponent();
 
     public void SetCategory(AppPage page) => _category = page;
 
+    /// <summary>
+    /// 每帧调用：只原地更新实时行的值/曲线，不重建控件树（修复滚动卡顿）。
+    /// </summary>
     public void Update(MainViewModel vm)
     {
-        var sections = _category switch
+        var model = EnsureModel(vm);
+
+        for (var i = 0; i < model.MetricRows.Count; i++)
         {
-            AppPage.Cpu => BuildCpu(vm),
-            AppPage.Memory => BuildMemory(vm),
-            AppPage.Disk => BuildDisk(vm),
-            AppPage.Gpu => BuildGpu(vm),
-            AppPage.Motherboard => BuildMotherboard(vm),
-            AppPage.Network => BuildNetwork(vm),
-            AppPage.Battery => BuildBattery(vm),
-            AppPage.Sensors => BuildSensors(vm),
-            _ => [],
-        };
-        Sections.ItemsSource = sections;
+            model.MetricRows[i].Value = model.MetricFormatters[i](vm);
+            var selector = model.MetricSelectors[i];
+            model.MetricRows[i].Spark = selector is null ? null : Series(vm, selector);
+        }
+
+        var sensors = model.SensorFilter(vm);
+        var n = Math.Min(sensors.Count, model.SensorRows.Count);
+        for (var i = 0; i < n; i++)
+        {
+            model.SensorRows[i].Value = FormatSensorValue(sensors[i]);
+        }
     }
 
-    // ---- builders ----
-    private List<DetailSection> BuildCpu(MainViewModel vm)
+    private PageModel EnsureModel(MainViewModel vm)
+    {
+        var sensors = _model?.SensorFilter(vm) ?? [];
+        var needRebuild = _model is null
+                          || _model.Category != _category
+                          || vm.Snapshot.CapturedAt == DateTimeOffset.MinValue
+                          || _model.SensorRows.Count != sensors.Count;
+        if (needRebuild)
+        {
+            _model = BuildModel(vm, _category);
+            Sections.ItemsSource = _model.Sections;
+        }
+        return _model!;
+    }
+
+    private static PageModel BuildModel(MainViewModel vm, AppPage category)
     {
         var loc = vm.Loc;
         var inv = vm.Snapshot.Inventory;
-        var m = vm.Snapshot.Metrics;
+        var sections = new List<DetailSection>();
+        var metricRows = new List<LiveRow>();
+        var formatters = new List<Func<MainViewModel, string>>();
+        var selectors = new List<Func<LiveMetrics, double?>?>();
+        var sensorRows = new List<LiveRow>();
+        Func<MainViewModel, IReadOnlyList<SensorReading>>? sensorFilter = null;
 
-        var invRows = new List<DetailRow>();
-        foreach (var c in inv.Cpus)
+        switch (category)
         {
-            invRows.Add(Row(loc["Detail.Model"], c.Name ?? loc["Common.NotAvailable"]));
-            invRows.Add(Row(loc["Detail.Cores"], c.CoreCount.ToString()));
-            invRows.Add(Row(loc["Detail.Threads"], c.LogicalProcessorCount.ToString()));
-            invRows.Add(Row(loc["Detail.BaseClock"], c.BaseClockGhz.HasValue ? $"{c.BaseClockGhz.Value:0.0} GHz" : loc["Common.NotAvailable"]));
-            invRows.Add(Row(loc["Detail.Manufacturer"], c.Manufacturer ?? loc["Common.NotAvailable"]));
+            case AppPage.Cpu:
+            {
+                var rows = new List<IDetailRow>();
+                foreach (var c in inv.Cpus)
+                {
+                    rows.Add(new StaticRow(loc["Detail.Model"], c.Name ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Cores"], c.CoreCount.ToString()));
+                    rows.Add(new StaticRow(loc["Detail.Threads"], c.LogicalProcessorCount.ToString()));
+                    rows.Add(new StaticRow(loc["Detail.BaseClock"], c.BaseClockGhz.HasValue ? $"{c.BaseClockGhz.Value:0.0} GHz" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Manufacturer"], c.Manufacturer ?? loc["Common.NotAvailable"]));
+                }
+                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                AddMetric(metricRows, formatters, selectors, loc["Detail.CpuUsage"],
+                    v => Format.Pct(v.Snapshot.Metrics.CpuUsagePercent), m => m.CpuUsagePercent);
+                sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s => MatchesCpu(s.HardwareName)).ToList();
+                break;
+            }
+            case AppPage.Memory:
+            {
+                var rows = inv.MemoryModules
+                    .Select(mm => (IDetailRow)new StaticRow(
+                        $"{mm.Manufacturer ?? loc["Common.Unknown"]} {mm.PartNumber ?? ""}".Trim(),
+                        $"{Format.Bytes(ParseBytes(mm.CapacityBytes))}  {mm.Speed ?? loc["Common.NotAvailable"]} MHz"))
+                    .ToList();
+                if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                AddMetric(metricRows, formatters, selectors, loc["Detail.MemUsage"],
+                    v => Format.Pct(v.Snapshot.Metrics.MemoryUsagePercent), m => m.MemoryUsagePercent);
+                AddMetric(metricRows, formatters, selectors, loc["Detail.MemUsed"],
+                    v => $"{Format.Bytes(v.Snapshot.Metrics.MemoryUsedBytes)} / {Format.Bytes(v.Snapshot.Metrics.MemoryTotalBytes)}", null);
+                break;
+            }
+            case AppPage.Disk:
+            {
+                var rows = new List<IDetailRow>();
+                foreach (var d in inv.Disks)
+                {
+                    rows.Add(new StaticRow(loc["Detail.Model"], d.Model ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Capacity"], Format.Bytes(d.CapacityBytes)));
+                    rows.Add(new StaticRow(loc["Detail.Serial"], d.SerialNumber ?? loc["Common.NotAvailable"]));
+                }
+                if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                AddMetric(metricRows, formatters, selectors, loc["Detail.DiskRead"],
+                    v => Format.Bps(v.Snapshot.Metrics.DiskReadBytesPerSec), m => m.DiskReadBytesPerSec);
+                AddMetric(metricRows, formatters, selectors, loc["Detail.DiskWrite"],
+                    v => Format.Bps(v.Snapshot.Metrics.DiskWriteBytesPerSec), m => m.DiskWriteBytesPerSec);
+                sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s =>
+                    s.SensorName.Contains("SMART", StringComparison.OrdinalIgnoreCase)
+                    || s.SensorName.Contains("Remaining Life", StringComparison.OrdinalIgnoreCase)
+                    || s.SensorName.Contains("Wear", StringComparison.OrdinalIgnoreCase)).ToList();
+                break;
+            }
+            case AppPage.Gpu:
+            {
+                var rows = new List<IDetailRow>();
+                foreach (var g in inv.Gpus)
+                {
+                    rows.Add(new StaticRow(loc["Detail.Model"], g.Name ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Vram"], Format.Bytes(g.MemoryBytes)));
+                    rows.Add(new StaticRow(loc["Detail.Driver"], g.DriverVersion ?? loc["Common.NotAvailable"]));
+                }
+                if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                AddMetric(metricRows, formatters, selectors, loc["Detail.GpuUsage"],
+                    v => Format.Pct(v.Snapshot.Metrics.GpuUsagePercent), m => m.GpuUsagePercent);
+                sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s => MatchesGpu(s.HardwareName)).ToList();
+                break;
+            }
+            case AppPage.Motherboard:
+            {
+                var rows = new List<IDetailRow>
+                {
+                    new StaticRow(loc["Detail.Computer"], inv.ComputerName ?? loc["Common.NotAvailable"]),
+                    new StaticRow(loc["Detail.Os"], $"{inv.OsCaption ?? ""} {inv.OsVersion ?? ""}".Trim()),
+                };
+                if (inv.Motherboard is { } mb)
+                {
+                    rows.Add(new StaticRow(loc["Detail.Manufacturer"], mb.Manufacturer ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Product"], mb.Product ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Bios"], mb.BiosVersion ?? loc["Common.NotAvailable"]));
+                }
+                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                break;
+            }
+            case AppPage.Network:
+            {
+                var rows = inv.NetworkAdapters
+                    .Select(n => (IDetailRow)new StaticRow(n.Name ?? loc["Common.NotAvailable"],
+                        $"{n.MacAddress ?? "—"}  {(n.IsPhysical == true ? loc["Detail.Yes"] : loc["Detail.No"])}"))
+                    .ToList();
+                if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                AddMetric(metricRows, formatters, selectors, loc["Detail.NetDown"],
+                    v => Format.Bps(v.Snapshot.Metrics.NetworkDownloadBps), m => m.NetworkDownloadBps);
+                AddMetric(metricRows, formatters, selectors, loc["Detail.NetUp"],
+                    v => Format.Bps(v.Snapshot.Metrics.NetworkUploadBps), m => m.NetworkUploadBps);
+                break;
+            }
+            case AppPage.Battery:
+            {
+                var rows = new List<IDetailRow>();
+                if (inv.Battery is { } b)
+                    rows.Add(new StaticRow(loc["Detail.Model"], b.DeviceName ?? loc["Common.NotAvailable"]));
+                else
+                    rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                AddMetric(metricRows, formatters, selectors, loc["Detail.BatteryLevel"],
+                    v => $"{Format.Pct(v.Snapshot.Metrics.BatteryChargePercent)} {(v.Snapshot.Metrics.BatteryIsCharging == true ? "⚡" + v.Loc["Detail.Charging"] : "")}",
+                    m => m.BatteryChargePercent);
+                break;
+            }
+            case AppPage.Sensors:
+                sensorFilter = v => v.Snapshot.Metrics.Sensors.ToList();
+                break;
         }
 
-        var liveRows = new List<DetailRow>
+        if (sensorFilter is not null)
         {
-            Row(loc["Detail.CpuUsage"], Format.Pct(m.CpuUsagePercent), Series(vm, x => x.CpuUsagePercent)),
-        };
-
-        var sensorRows = SensorsWhere(vm, s => MatchesCpu(s.HardwareName));
-
-        return [Section(loc["Detail.Inventory"], invRows), Section(loc["Detail.Live"], liveRows), Section(loc["Detail.Sensors"], sensorRows)];
-    }
-
-    private List<DetailSection> BuildMemory(MainViewModel vm)
-    {
-        var loc = vm.Loc;
-        var m = vm.Snapshot.Metrics;
-        var invRows = vm.Snapshot.Inventory.MemoryModules
-            .Select(mm => Row($"{mm.Manufacturer ?? loc["Common.Unknown"]} {mm.PartNumber ?? ""}".Trim(), $"{Format.Bytes(ParseBytes(mm.CapacityBytes))}  {mm.Speed ?? loc["Common.NotAvailable"]} MHz"))
-            .ToList();
-        if (invRows.Count == 0) invRows.Add(Row(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-        var liveRows = new List<DetailRow>
-        {
-            Row(loc["Detail.MemUsage"], Format.Pct(m.MemoryUsagePercent), Series(vm, x => x.MemoryUsagePercent)),
-            Row(loc["Detail.MemUsed"], $"{Format.Bytes(m.MemoryUsedBytes)} / {Format.Bytes(m.MemoryTotalBytes)}"),
-        };
-        return [Section(loc["Detail.Inventory"], invRows), Section(loc["Detail.Live"], liveRows)];
-    }
-
-    private List<DetailSection> BuildDisk(MainViewModel vm)
-    {
-        var loc = vm.Loc;
-        var m = vm.Snapshot.Metrics;
-        var invRows = new List<DetailRow>();
-        foreach (var d in vm.Snapshot.Inventory.Disks)
-        {
-            invRows.Add(Row(loc["Detail.Model"], d.Model ?? loc["Common.NotAvailable"]));
-            invRows.Add(Row(loc["Detail.Capacity"], Format.Bytes(d.CapacityBytes)));
-            invRows.Add(Row(loc["Detail.Serial"], d.SerialNumber ?? loc["Common.NotAvailable"]));
+            foreach (var s in sensorFilter(vm))
+            {
+                sensorRows.Add(new LiveRow(FormatSensorLabel(s), FormatSensorValue(s)));
+            }
+            sections.Add(new DetailSection(loc["Detail.Sensors"], sensorRows.Cast<IDetailRow>().ToList()));
         }
-        if (invRows.Count == 0) invRows.Add(Row(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
 
-        var liveRows = new List<DetailRow>
+        return new PageModel
         {
-            Row(loc["Detail.DiskRead"], Format.Bps(m.DiskReadBytesPerSec), Series(vm, x => x.DiskReadBytesPerSec)),
-            Row(loc["Detail.DiskWrite"], Format.Bps(m.DiskWriteBytesPerSec), Series(vm, x => x.DiskWriteBytesPerSec)),
+            Category = category,
+            Sections = sections,
+            MetricRows = metricRows,
+            MetricFormatters = formatters,
+            MetricSelectors = selectors,
+            SensorFilter = sensorFilter ?? (_ => []),
+            SensorRows = sensorRows,
         };
-
-        var smartRows = SensorsWhere(vm, s => s.SensorName.Contains("SMART", StringComparison.OrdinalIgnoreCase)
-                                              || s.SensorName.Contains("Remaining Life", StringComparison.OrdinalIgnoreCase)
-                                              || s.SensorName.Contains("Wear", StringComparison.OrdinalIgnoreCase));
-        return [Section(loc["Detail.Inventory"], invRows), Section(loc["Detail.Live"], liveRows), Section(loc["Detail.Sensors"], smartRows)];
     }
 
-    private List<DetailSection> BuildGpu(MainViewModel vm)
+    private static void AddMetric(
+        List<LiveRow> rows, List<Func<MainViewModel, string>> fmts, List<Func<LiveMetrics, double?>?> sels,
+        string label, Func<MainViewModel, string> fmt, Func<LiveMetrics, double?>? sel)
     {
-        var loc = vm.Loc;
-        var m = vm.Snapshot.Metrics;
-        var invRows = new List<DetailRow>();
-        foreach (var g in vm.Snapshot.Inventory.Gpus)
-        {
-            invRows.Add(Row(loc["Detail.Model"], g.Name ?? loc["Common.NotAvailable"]));
-            invRows.Add(Row(loc["Detail.Vram"], Format.Bytes(g.MemoryBytes)));
-            invRows.Add(Row(loc["Detail.Driver"], g.DriverVersion ?? loc["Common.NotAvailable"]));
-        }
-        if (invRows.Count == 0) invRows.Add(Row(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-        var liveRows = new List<DetailRow>
-        {
-            Row(loc["Detail.GpuUsage"], Format.Pct(m.GpuUsagePercent), Series(vm, x => x.GpuUsagePercent)),
-        };
-        var sensorRows = SensorsWhere(vm, s => MatchesGpu(s.HardwareName));
-        return [Section(loc["Detail.Inventory"], invRows), Section(loc["Detail.Live"], liveRows), Section(loc["Detail.Sensors"], sensorRows)];
+        rows.Add(new LiveRow(label));
+        fmts.Add(fmt);
+        sels.Add(sel);
     }
-
-    private List<DetailSection> BuildMotherboard(MainViewModel vm)
-    {
-        var loc = vm.Loc;
-        var inv = vm.Snapshot.Inventory;
-        var rows = new List<DetailRow>
-        {
-            Row(loc["Detail.Computer"], inv.ComputerName ?? loc["Common.NotAvailable"]),
-            Row(loc["Detail.Os"], $"{inv.OsCaption ?? ""} {inv.OsVersion ?? ""}".Trim()),
-        };
-        if (inv.Motherboard is { } mb)
-        {
-            rows.Add(Row(loc["Detail.Manufacturer"], mb.Manufacturer ?? loc["Common.NotAvailable"]));
-            rows.Add(Row(loc["Detail.Product"], mb.Product ?? loc["Common.NotAvailable"]));
-            rows.Add(Row(loc["Detail.Bios"], mb.BiosVersion ?? loc["Common.NotAvailable"]));
-        }
-        return [Section(loc["Detail.Inventory"], rows)];
-    }
-
-    private List<DetailSection> BuildNetwork(MainViewModel vm)
-    {
-        var loc = vm.Loc;
-        var m = vm.Snapshot.Metrics;
-        var invRows = vm.Snapshot.Inventory.NetworkAdapters
-            .Select(n => Row(n.Name ?? loc["Common.NotAvailable"], $"{n.MacAddress ?? "—"}  {(n.IsPhysical == true ? loc["Detail.Yes"] : loc["Detail.No"])}"))
-            .ToList();
-        if (invRows.Count == 0) invRows.Add(Row(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-        var liveRows = new List<DetailRow>
-        {
-            Row(loc["Detail.NetDown"], Format.Bps(m.NetworkDownloadBps), Series(vm, x => x.NetworkDownloadBps)),
-            Row(loc["Detail.NetUp"], Format.Bps(m.NetworkUploadBps), Series(vm, x => x.NetworkUploadBps)),
-        };
-        return [Section(loc["Detail.Inventory"], invRows), Section(loc["Detail.Live"], liveRows)];
-    }
-
-    private List<DetailSection> BuildBattery(MainViewModel vm)
-    {
-        var loc = vm.Loc;
-        var m = vm.Snapshot.Metrics;
-        var invRows = new List<DetailRow>();
-        if (vm.Snapshot.Inventory.Battery is { } b)
-        {
-            invRows.Add(Row(loc["Detail.Model"], b.DeviceName ?? loc["Common.NotAvailable"]));
-        }
-        else
-        {
-            invRows.Add(Row(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-        }
-        var liveRows = new List<DetailRow>
-        {
-            Row(loc["Detail.BatteryLevel"], $"{Format.Pct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "⚡" + loc["Detail.Charging"] : "")}",
-                Series(vm, x => x.BatteryChargePercent)),
-        };
-        return [Section(loc["Detail.Inventory"], invRows), Section(loc["Detail.Live"], liveRows)];
-    }
-
-    private List<DetailSection> BuildSensors(MainViewModel vm)
-    {
-        var loc = vm.Loc;
-        var rows = vm.Snapshot.Metrics.Sensors
-            .GroupBy(s => s.HardwareName)
-            .SelectMany(g => g.Select(s => Row($"{g.Key} / {s.SensorName}", $"{Format.Number(s.Value)} {s.Unit}")) )
-            .ToList();
-        if (rows.Count == 0) rows.Add(Row(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-        return [Section(loc["Detail.Sensors"], rows)];
-    }
-
-    // ---- helpers ----
-    private static List<DetailRow> SensorsWhere(MainViewModel vm, Func<SensorReading, bool> pred) =>
-        vm.Snapshot.Metrics.Sensors
-            .Where(pred)
-            .Select(s => Row($"{s.HardwareName} / {s.SensorName}", $"{Format.Number(s.Value)} {s.Unit}".Trim()))
-            .ToList();
 
     private static List<double?> Series(MainViewModel vm, Func<LiveMetrics, double?> sel) => vm.History.Select(sel).ToList();
+
+    private static string FormatSensorLabel(SensorReading s) => $"{s.HardwareName} / {s.SensorName}";
+
+    private static string FormatSensorValue(SensorReading s) => $"{Format.Number(s.Value)} {s.Unit}".Trim();
 
     private static bool MatchesCpu(string name) =>
         name.Contains("CPU", StringComparison.OrdinalIgnoreCase)
@@ -208,8 +243,4 @@ public partial class DetailPage : UserControl
         || name.Contains("Graphics", StringComparison.OrdinalIgnoreCase);
 
     private static double? ParseBytes(string? s) => long.TryParse(s, out var b) ? b : null;
-
-    private static DetailRow Row(string label, string value, IReadOnlyList<double?>? spark = null) => new(label, value, spark);
-
-    private static DetailSection Section(string title, IReadOnlyList<DetailRow> rows) => new(title, rows);
 }

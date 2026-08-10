@@ -3,7 +3,10 @@ using System.Windows.Media;
 
 namespace TecSight.App.Controls;
 
-/// <summary>轻量迷你曲线控件：把数值序列画成折线，自动归一化。</summary>
+/// <summary>
+/// 轻量迷你曲线控件：把数值序列画成折线，自动归一化。
+/// 渲染时按像素宽度下采样，避免超长历史（3600 点）导致绘制开销过大。
+/// </summary>
 public sealed class Sparkline : FrameworkElement
 {
     public static readonly DependencyProperty ValuesProperty = DependencyProperty.Register(
@@ -29,11 +32,18 @@ public sealed class Sparkline : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
-        var pts = Values?.Select(v => v).ToList() ?? [];
+        var all = Values?.ToList() ?? [];
+        if (all.Count < 2) return;
+
+        var w = Math.Max(2, ActualWidth);
+        var h = Math.Max(1, ActualHeight);
+
+        // 下采样：只保留最近约每像素一个点
+        var maxPoints = Math.Max(2, (int)Math.Ceiling(w));
+        var start = Math.Max(0, all.Count - maxPoints);
+        var pts = all.Skip(start).ToList();
         if (pts.Count < 2) return;
 
-        var w = Math.Max(1, ActualWidth);
-        var h = Math.Max(1, ActualHeight);
         var valid = pts.Where(p => p.HasValue).Select(p => p!.Value).ToList();
         if (valid.Count == 0) return;
         var min = valid.Min();
