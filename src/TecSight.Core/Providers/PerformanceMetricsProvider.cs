@@ -1,0 +1,244 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using TecSight.Core.Models;
+
+namespace TecSight.Core;
+
+/// <summary>
+/// 运行指标真实数据源：性能计数器 + 原生 API，免管理员权限。
+/// CPU/内存/磁盘 I/O/网络/GPU 占用；任一计数器不可用时该指标降级为 null。
+/// </summary>
+public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposable
+{
+    public string Name => "performance-counters";
+
+    private readonly PerformanceCounter? _cpu;
+    private readonly PerformanceCounter? _memoryPercent;
+    private readonly PerformanceCounter? _diskRead;
+    private readonly PerformanceCounter? _diskWrite;
+    private List<PerformanceCounter> _networkDown = [];
+    private List<PerformanceCounter> _networkUp = [];
+    private List<PerformanceCounter> _gpuEngines = [];
+    private DateTimeOffset _lastNetworkRefresh = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastGpuRefresh = DateTimeOffset.MinValue;
+
+    public PerformanceMetricsProvider()
+    {
+        _cpu = CreateCounter("Processor Information", "% Processor Utility", "_Total")
+               ?? CreateCounter("Processor", "% Processor Time", "_Total");
+        _memoryPercent = CreateCounter("Memory", "% Committed Bytes In Use", null);
+        _diskRead = CreateCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total");
+        _diskWrite = CreateCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total");
+    }
+
+    public LiveMetrics Capture()
+    {
+        var ts = DateTimeOffset.Now;
+        var (total, used) = MemoryBytes();
+        return new LiveMetrics
+        {
+            Timestamp = ts,
+            CpuUsagePercent = Clamp01(ReadCounter(_cpu)),
+            MemoryUsagePercent = Clamp01(ReadCounter(_memoryPercent)),
+            MemoryUsedBytes = used,
+            MemoryTotalBytes = total,
+            DiskReadBytesPerSec = ReadCounter(_diskRead),
+            DiskWriteBytesPerSec = ReadCounter(_diskWrite),
+            GpuUsagePercent = Clamp01(ReadGpuUsage()),
+            NetworkDownloadBps = ReadNetworkDown(),
+            NetworkUploadBps = ReadNetworkUp(),
+        };
+    }
+
+    private double? ReadGpuUsage()
+    {
+        try
+        {
+            RefreshGpuCountersIfStale();
+            var sum = 0.0;
+            foreach (var c in _gpuEngines)
+            {
+                var v = c.NextValue();
+                if (v > 0) sum += v;
+            }
+            return sum;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private double? ReadNetworkDown()
+    {
+        try
+        {
+            RefreshNetworkCountersIfStale();
+            var sum = 0.0;
+            foreach (var c in _networkDown)
+            {
+                var v = c.NextValue();
+                if (v > 0) sum += v;
+            }
+            return sum;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private double? ReadNetworkUp()
+    {
+        try
+        {
+            RefreshNetworkCountersIfStale();
+            var sum = 0.0;
+            foreach (var c in _networkUp)
+            {
+                var v = c.NextValue();
+                if (v > 0) sum += v;
+            }
+            return sum;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void RefreshNetworkCountersIfStale()
+    {
+        if (DateTimeOffset.UtcNow - _lastNetworkRefresh < TimeSpan.FromSeconds(30)) return;
+        _lastNetworkRefresh = DateTimeOffset.UtcNow;
+        DisposeAll(_networkDown); DisposeAll(_networkUp);
+        _networkDown = [];
+        _networkUp = [];
+        try
+        {
+            var category = new PerformanceCounterCategory("Network Interface");
+            foreach (var instance in category.GetInstanceNames())
+            {
+                _networkDown.Add(new PerformanceCounter("Network Interface", "Bytes Received/sec", instance));
+                _networkUp.Add(new PerformanceCounter("Network Interface", "Bytes Sent/sec", instance));
+            }
+        }
+        catch
+        {
+            // 网络计数器不可用时保持空列表
+        }
+    }
+
+    private void RefreshGpuCountersIfStale()
+    {
+        if (DateTimeOffset.UtcNow - _lastGpuRefresh < TimeSpan.FromSeconds(30)) return;
+        _lastGpuRefresh = DateTimeOffset.UtcNow;
+        DisposeAll(_gpuEngines);
+        _gpuEngines = [];
+        try
+        {
+            var category = new PerformanceCounterCategory("GPU Engine");
+            foreach (var instance in category.GetInstanceNames())
+            {
+                try
+                {
+                    _gpuEngines.Add(new PerformanceCounter("GPU Engine", "Utilization Percentage", instance));
+                }
+                catch
+                {
+                    // 单个实例不可用时忽略
+                }
+            }
+        }
+        catch
+        {
+            // GPU Engine 计数器不可用时保持空列表
+        }
+    }
+
+    private static double? ReadCounter(PerformanceCounter? counter)
+    {
+        try
+        {
+            if (counter is null) return null;
+            var v = counter.NextValue();
+            return v < 0 ? 0 : v;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static PerformanceCounter? CreateCounter(string category, string counter, string? instance)
+    {
+        try
+        {
+            return instance is null
+                ? new PerformanceCounter(category, counter, readOnly: true)
+                : new PerformanceCounter(category, counter, instance, readOnly: true);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static double? Clamp01(double? v)
+    {
+        if (v is null) return null;
+        return Math.Clamp(v.Value, 0, 100);
+    }
+
+    private static void DisposeAll(IEnumerable<PerformanceCounter> counters)
+    {
+        foreach (var c in counters)
+        {
+            try { c.Dispose(); } catch { }
+        }
+    }
+
+    public void Dispose()
+    {
+        _cpu?.Dispose();
+        _memoryPercent?.Dispose();
+        _diskRead?.Dispose();
+        _diskWrite?.Dispose();
+        DisposeAll(_networkDown);
+        DisposeAll(_networkUp);
+        DisposeAll(_gpuEngines);
+    }
+
+    // ---- 原生 API：GlobalMemoryStatusEx ----
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MemoryStatusEx
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx lpBuffer);
+
+    private static (double? Total, double? Used) MemoryBytes()
+    {
+        try
+        {
+            var m = new MemoryStatusEx { dwLength = (uint)Marshal.SizeOf<MemoryStatusEx>() };
+            if (!GlobalMemoryStatusEx(ref m) || m.ullTotalPhys == 0) return (null, null);
+            var used = (double)(m.ullTotalPhys - m.ullAvailPhys);
+            return (m.ullTotalPhys, used);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+}

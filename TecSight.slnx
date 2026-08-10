@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TecSight.App/TecSight.App.csproj" />
+    <Project Path="src/TecSight.Core/TecSight.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TecSight.Core.Tests/TecSight.Core.Tests.csproj" />
+  </Folder>
+</Solution>
