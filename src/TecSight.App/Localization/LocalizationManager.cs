@@ -102,7 +102,14 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.DiskWrite", "写入", "Write");
         Both("Detail.NetDown", "下载", "Download");
         Both("Detail.NetUp", "上传", "Upload");
-        Both("Detail.GpuUsage", "GPU 使用率", "GPU Usage");
+                Both("Detail.GpuUsage", "GPU 使用率", "GPU Usage");
+        Both("Detail.GpuFreq", "核心频率", "GPU Clock");
+        Both("Detail.VramTotal", "总显存", "Total VRAM");
+        Both("Detail.VramUsed", "显存已用", "VRAM Used");
+        Both("Detail.VramFree", "显存空闲", "VRAM Free");
+        Both("Detail.VramUsage", "显存占用", "VRAM Usage");
+        Both("Detail.NoSensors", "无传感器数据", "No sensor data");
+        Both("Detail.NoSmart", "无 SMART 属性（可能需要管理员权限）", "No SMART attributes (may require admin)");
         Both("Detail.BatteryLevel", "电量", "Charge Level");
         Both("Detail.Ip", "IP 地址", "IP Address");
         Both("Detail.Gateway", "网关", "Gateway");

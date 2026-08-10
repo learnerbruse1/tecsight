@@ -67,9 +67,37 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static List<DiskInfo> QueryDisks()
     {
-        return SafeQuery("SELECT Model, SerialNumber, Size FROM Win32_DiskDrive",
+        var disks = SafeQuery("SELECT Model, SerialNumber, Size FROM Win32_DiskDrive",
             row => new DiskInfo(GetString(row, "Model"), GetString(row, "SerialNumber"), GetLong(row, "Size"), Health: null));
+
+        // 磁盘健康度：MSFT_PhysicalDisk（无需管理员，本机验证可用）
+        var health = SafeQuery("root\\Microsoft\\Windows\\Storage",
+            "SELECT DeviceId, FriendlyName, SerialNumber, HealthStatus, Size, MediaType FROM MSFT_PhysicalDisk",
+            row => new
+            {
+                FriendlyName = GetString(row, "FriendlyName"),
+                SerialNumber = GetString(row, "SerialNumber"),
+                HealthStatus = GetInt(row, "HealthStatus"),
+            });
+        var result = new List<DiskInfo>(disks.Count);
+        foreach (var d in disks)
+        {
+            var h = health.FirstOrDefault(x => x.SerialNumber != null && x.SerialNumber.Equals(d.SerialNumber, StringComparison.OrdinalIgnoreCase))
+                    ?? health.FirstOrDefault(x => x.FriendlyName != null && d.Model != null && x.FriendlyName.Contains(d.Model, StringComparison.OrdinalIgnoreCase));
+            result.Add(h is null
+                ? d
+                : d with { Health = new StorageHealth(h.FriendlyName ?? d.Model ?? "?", HealthFrom(h.HealthStatus), null) });
+        }
+        return result;
     }
+
+    private static HealthStatus HealthFrom(int? status) => status switch
+    {
+        0 => HealthStatus.Good,
+        1 => HealthStatus.Warning,
+        2 => HealthStatus.Critical,
+        _ => HealthStatus.Unknown,
+    };
 
     private static List<GpuInfo> QueryGpus()
     {
@@ -115,17 +143,20 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 GetStringArray(row, "DNSServerSearchOrder")));
     }
 
+    /// <summary>
+    /// 电池容量：设计容量来自 root\wmi BatteryStaticData.DesignedCapacity，
+    /// 满充容量来自 root\wmi BatteryFullChargedCapacity.FullChargedCapacity（单位 mWh）。
+    /// </summary>
     private static BatteryInfo? QueryBattery()
     {
-        var battery = SafeQuery("SELECT Name, DesignCapacity FROM Win32_Battery",
-            row => new BatteryInfo(GetString(row, "Name"), ToWh(GetInt(row, "DesignCapacity")), null)).FirstOrDefault();
-        if (battery is null) return null;
-        var full = SafeQuery("root\\wmi", "SELECT FullyChargedCapacity FROM BatteryFullChargedCapacity",
-            row => ToWh(GetInt(row, "FullyChargedCapacity"))).FirstOrDefault();
-        return battery with { FullChargeCapacityWh = full };
+        var name = QueryFirstString("SELECT Name FROM Win32_Battery", "Name");
+        if (name is null) return null;
+        double? designed = SafeQuery("root\\wmi", "SELECT DesignedCapacity FROM BatteryStaticData", row => ToWh(GetUInt(row, "DesignedCapacity"))).FirstOrDefault();
+        double? full = SafeQuery("root\\wmi", "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity", row => ToWh(GetUInt(row, "FullChargedCapacity"))).FirstOrDefault();
+        return new BatteryInfo(name, designed, full);
     }
 
-    private static double? ToWh(int? mWh) => mWh is int v && v > 0 ? v / 1000.0 : null;
+    private static double? ToWh(double? mWh) => mWh is double v && v > 0 ? v / 1000.0 : null;
 
     // ---- helpers ----
     private static List<T> SafeQuery<T>(string query, Func<ManagementBaseObject, T> map)
@@ -179,6 +210,11 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     private static int? GetInt(ManagementBaseObject o, string p)
     {
         try { return Convert.ToInt32(o[p]); } catch { return null; }
+    }
+
+    private static double? GetUInt(ManagementBaseObject o, string p)
+    {
+        try { return Convert.ToDouble(o[p]); } catch { return null; }
     }
 
     private static long? GetLong(ManagementBaseObject o, string p)

@@ -17,6 +17,10 @@ public partial class OverviewPage : UserControl
 
         var cpu = inv.Cpus.FirstOrDefault();
         var gpu = inv.Gpus.OrderByDescending(g => g.MemoryBytes ?? 0).FirstOrDefault();
+        var gpuClock = m.Sensors.FirstOrDefault(s =>
+            s.SensorName.Equals("GPU Core", StringComparison.OrdinalIgnoreCase) && s.Unit == "MHz")?.Value;
+        var cpuSub = (cpu?.Name ?? loc["Common.NotAvailable"]) + (m.CpuFrequencyMhz.HasValue ? $"  ·  {Format.FreqGhz(m.CpuFrequencyMhz)}" : "");
+        var gpuSub = (gpu?.Name ?? loc["Common.NotAvailable"]) + (gpuClock.HasValue ? $"  ·  {Format.FreqMhz(gpuClock)}" : "");
         var disk = inv.Disks.FirstOrDefault();
         var net = inv.NetworkAdapters.FirstOrDefault(n => n.IsPhysical == true) ?? inv.NetworkAdapters.FirstOrDefault();
         var bat = inv.Battery;
@@ -39,11 +43,11 @@ public partial class OverviewPage : UserControl
 
         Cards.ItemsSource = new List<OverviewCard>
         {
-            new(loc["Overview.Cpu"], Format.Pct(m.CpuUsagePercent), cpu?.Name ?? loc["Common.NotAvailable"]),
+            new(loc["Overview.Cpu"], Format.Pct(m.CpuUsagePercent), cpuSub),
             new(loc["Overview.Memory"], $"{Format.Pct(m.MemoryUsagePercent)}  {Format.Bytes(m.MemoryUsedBytes)} / {Format.Bytes(m.MemoryTotalBytes)}", memSubtitle),
             new(loc["Overview.Disk"], $"{loc["Overview.Down"]} {Format.Bps(m.DiskReadBytesPerSec)}  {loc["Overview.Up"]} {Format.Bps(m.DiskWriteBytesPerSec)}",
                 disk is null ? loc["Common.NotAvailable"] : $"{disk.Model}  {Format.Bytes(disk.CapacityBytes)}"),
-            new(loc["Overview.Gpu"], Format.Pct(m.GpuUsagePercent), gpu?.Name ?? loc["Common.NotAvailable"]),
+            new(loc["Overview.Gpu"], Format.Pct(m.GpuUsagePercent), gpuSub),
             new(loc["Overview.Network"], $"{loc["Overview.Down"]} {Format.Bps(m.NetworkDownloadBps)}  {loc["Overview.Up"]} {Format.Bps(m.NetworkUploadBps)}",
                 net?.Name ?? loc["Common.NotAvailable"]),
             new(loc["Overview.Battery"], $"{Format.Pct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "⚡" : "")}",

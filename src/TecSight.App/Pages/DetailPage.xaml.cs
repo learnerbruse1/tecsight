@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using TecSight.App.Localization;
 using TecSight.App.Models;
 using TecSight.Core.Models;
 
@@ -133,6 +134,7 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.Model"], d.Model ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Capacity"], Format.Bytes(d.CapacityBytes)));
                     rows.Add(new StaticRow(loc["Detail.Serial"], d.SerialNumber ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Health"], HealthText(d.Health, loc)));
                 }
                 if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
@@ -140,10 +142,16 @@ public partial class DetailPage : UserControl
                     v => Format.Bps(v.Snapshot.Metrics.DiskReadBytesPerSec), m => m.DiskReadBytesPerSec);
                 AddMetric(metricRows, formatters, selectors, loc["Detail.DiskWrite"],
                     v => Format.Bps(v.Snapshot.Metrics.DiskWriteBytesPerSec), m => m.DiskWriteBytesPerSec);
-                sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s =>
-                    s.SensorName.Contains("SMART", StringComparison.OrdinalIgnoreCase)
-                    || s.SensorName.Contains("Remaining Life", StringComparison.OrdinalIgnoreCase)
-                    || s.SensorName.Contains("Wear", StringComparison.OrdinalIgnoreCase)).ToList();
+                // 磁盘传感器：按磁盘型号匹配 LHM 存储传感器 + SMART/剩余寿命/磨损
+                sensorFilter = v =>
+                {
+                    var models = v.Snapshot.Inventory.Disks.Select(d => d.Model).Where(m => !string.IsNullOrEmpty(m)).ToList();
+                    return v.Snapshot.Metrics.Sensors.Where(s =>
+                        models.Any(m => !string.IsNullOrEmpty(m) && s.HardwareName.Contains(m, StringComparison.OrdinalIgnoreCase))
+                        || s.SensorName.Contains("SMART", StringComparison.OrdinalIgnoreCase)
+                        || s.SensorName.Contains("Remaining Life", StringComparison.OrdinalIgnoreCase)
+                        || s.SensorName.Contains("Wear", StringComparison.OrdinalIgnoreCase)).ToList();
+                };
                 smartFilter = v => v.Snapshot.Metrics.SmartAttributes;
                 break;
             }
@@ -153,13 +161,28 @@ public partial class DetailPage : UserControl
                 foreach (var g in inv.Gpus)
                 {
                     rows.Add(new StaticRow(loc["Detail.Model"], g.Name ?? loc["Common.NotAvailable"]));
-                    rows.Add(new StaticRow(loc["Detail.Vram"], Format.Bytes(g.MemoryBytes)));
                     rows.Add(new StaticRow(loc["Detail.Driver"], g.DriverVersion ?? loc["Common.NotAvailable"]));
                 }
+                // 显存：优先用 LHM 传感器（MB），规避 Win32 AdapterRAM 32 位溢出错误
+                var vramTotalMb = GpuSensorValue(vm, "GPU Memory Total");
+                rows.Add(new StaticRow(loc["Detail.VramTotal"],
+                    vramTotalMb.HasValue
+                        ? Format.Bytes(vramTotalMb.Value * 1024 * 1024)
+                        : (inv.Gpus.FirstOrDefault()?.MemoryBytes is long mb && mb > 0 ? Format.Bytes(mb) : loc["Common.NotAvailable"])));
                 if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.GpuUsage"],
                     v => Format.Pct(v.Snapshot.Metrics.GpuUsagePercent), m => m.GpuUsagePercent);
+                AddMetric(metricRows, formatters, selectors, loc["Detail.GpuFreq"],
+                    v => Format.FreqMhz(GpuClockMhz(v)), m => GpuClockMhzFrom(m));
+                AddMetric(metricRows, formatters, selectors, loc["Detail.VramUsed"],
+                    v => Format.Bytes(GpuSensorValue(v, "GPU Memory Used") * 1024 * 1024),
+                    m => GpuSensorValueFrom(m, "GPU Memory Used") * 1024 * 1024);
+                AddMetric(metricRows, formatters, selectors, loc["Detail.VramFree"],
+                    v => Format.Bytes(GpuSensorValue(v, "GPU Memory Free") * 1024 * 1024),
+                    m => GpuSensorValueFrom(m, "GPU Memory Free") * 1024 * 1024);
+                AddMetric(metricRows, formatters, selectors, loc["Detail.VramUsage"],
+                    VramUsageText, null);
                 // F6：GPU 引擎拆分 + GPU 相关传感器
                 sensorFilter = v =>
                 {
@@ -247,7 +270,9 @@ public partial class DetailPage : UserControl
             {
                 sensorRows.Add(new LiveRow(FormatSensorLabel(s), FormatSensorValue(s)));
             }
-            sections.Add(new DetailSection(loc["Detail.Sensors"], sensorRows.Cast<IDetailRow>().ToList()));
+            var sensorList = sensorRows.Cast<IDetailRow>().ToList();
+            if (sensorList.Count == 0) sensorList.Add(new StaticRow(loc["Detail.Sensors"], loc["Detail.NoSensors"]));
+            sections.Add(new DetailSection(loc["Detail.Sensors"], sensorList));
         }
 
         if (smartFilter is not null)
@@ -256,7 +281,9 @@ public partial class DetailPage : UserControl
             {
                 smartRows.Add(new LiveRow(FormatSmartLabel(a), FormatSmartValue(a)));
             }
-            sections.Add(new DetailSection(loc["Detail.Smart"], smartRows.Cast<IDetailRow>().ToList()));
+            var smartList = smartRows.Cast<IDetailRow>().ToList();
+            if (smartList.Count == 0) smartList.Add(new StaticRow(loc["Detail.Smart"], loc["Detail.NoSmart"]));
+            sections.Add(new DetailSection(loc["Detail.Smart"], smartList));
         }
 
         return new PageModel
@@ -301,6 +328,35 @@ public partial class DetailPage : UserControl
     }
 
     private static string Join(IReadOnlyList<string> items) => items.Count > 0 ? string.Join(", ", items) : "—";
+
+    private static double? GpuSensorValue(MainViewModel vm, string name)
+        => vm.Snapshot.Metrics.Sensors.FirstOrDefault(s => s.SensorName.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static double? GpuSensorValueFrom(LiveMetrics m, string name)
+        => m.Sensors.FirstOrDefault(s => s.SensorName.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static double? GpuClockMhz(MainViewModel vm)
+        => vm.Snapshot.Metrics.Sensors.FirstOrDefault(s =>
+            s.SensorName.Equals("GPU Core", StringComparison.OrdinalIgnoreCase) && s.Unit == "MHz")?.Value;
+
+    private static double? GpuClockMhzFrom(LiveMetrics m)
+        => m.Sensors.FirstOrDefault(s =>
+            s.SensorName.Equals("GPU Core", StringComparison.OrdinalIgnoreCase) && s.Unit == "MHz")?.Value;
+
+    private static string VramUsageText(MainViewModel vm)
+    {
+        var used = GpuSensorValue(vm, "GPU Memory Used");
+        var total = GpuSensorValue(vm, "GPU Memory Total");
+        return used.HasValue && total is > 0 ? $"{used.Value / total.Value * 100:0.0}%" : "—";
+    }
+
+    private static string HealthText(StorageHealth? h, LocalizationManager loc) => h?.Status switch
+    {
+        HealthStatus.Good => loc["Common.Good"],
+        HealthStatus.Warning => loc["Common.Warning"],
+        HealthStatus.Critical => loc["Common.Critical"],
+        _ => loc["Common.NotAvailable"],
+    };
 
     private static bool MatchesCpu(string name) =>
         name.Contains("CPU", StringComparison.OrdinalIgnoreCase)

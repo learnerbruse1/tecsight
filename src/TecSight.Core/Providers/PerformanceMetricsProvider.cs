@@ -18,6 +18,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     private const string EngineTypePrefix = "engtype_";
 
     private readonly PerformanceCounter? _cpu;
+    private readonly PerformanceCounter? _cpuFreq;
     private readonly PerformanceCounter? _memoryPercent;
     private readonly PerformanceCounter? _diskRead;
     private readonly PerformanceCounter? _diskWrite;
@@ -33,6 +34,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     {
         _cpu = CreateCounter("Processor Information", "% Processor Utility", "_Total")
                ?? CreateCounter("Processor", "% Processor Time", "_Total");
+        _cpuFreq = CreateCounter("Processor Information", "Processor Frequency", "_Total");
         _memoryPercent = CreateCounter("Memory", "% Committed Bytes In Use", null);
         _diskRead = CreateCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total");
         _diskWrite = CreateCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total");
@@ -48,6 +50,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         {
             Timestamp = ts,
             CpuUsagePercent = Clamp01(ReadCounter(_cpu)),
+            CpuFrequencyMhz = ReadCounter(_cpuFreq),
             MemoryUsagePercent = Clamp01(ReadCounter(_memoryPercent)),
             MemoryUsedBytes = used,
             MemoryTotalBytes = total,
@@ -280,6 +283,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     public void Dispose()
     {
         _cpu?.Dispose();
+        _cpuFreq?.Dispose();
         _memoryPercent?.Dispose();
         _diskRead?.Dispose();
         _diskWrite?.Dispose();

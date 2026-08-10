@@ -5,6 +5,7 @@ public sealed record LiveMetrics
 {
     public DateTimeOffset Timestamp { get; init; }
     public double? CpuUsagePercent { get; init; }
+    public double? CpuFrequencyMhz { get; init; }
     public double? MemoryUsagePercent { get; init; }
     public double? MemoryUsedBytes { get; init; }
     public double? MemoryTotalBytes { get; init; }

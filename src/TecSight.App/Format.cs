@@ -7,6 +7,8 @@ public static class Format
     public static string Bytes(double? b) => b.HasValue ? HumanBytes(b.Value) : "—";
     public static string Bps(double? b) => b.HasValue ? HumanBytes(b.Value) + "/s" : "—";
     public static string Number(double? v) => v.HasValue ? v.Value.ToString("0.##") : "—";
+    public static string FreqMhz(double? mhz) => mhz.HasValue ? $"{mhz.Value:0} MHz" : "—";
+    public static string FreqGhz(double? mhz) => mhz.HasValue ? $"{mhz.Value / 1000.0:0.00} GHz" : "—";
 
     /// <summary>运行时长（秒 → 天/小时/分，按语言）。</summary>
     public static string Uptime(double? seconds, string lang)
