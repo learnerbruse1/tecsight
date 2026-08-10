@@ -11,3 +11,12 @@ public sealed record NetworkConfigInfo(string? Description, IReadOnlyList<string
 
 /// <summary>磁盘 SMART 属性（F7）：单个属性（ID、名称、当前值、最差值、阈值、原始值）。</summary>
 public sealed record SmartAttributeReading(string DiskName, byte Id, string Name, double? CurrentValue, byte? Worst, byte? Threshold, string RawValue);
+
+/// <summary>显示器信息。</summary>
+public sealed record DisplayInfo(string? Name, string? Manufacturer, string? PnpDeviceId);
+
+/// <summary>音频设备信息。</summary>
+public sealed record AudioDeviceInfo(string? Name, string? Manufacturer, string? Status);
+
+/// <summary>USB 设备信息。</summary>
+public sealed record UsbDeviceInfo(string? Name, string? Manufacturer);

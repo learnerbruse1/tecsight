@@ -33,7 +33,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Nav.Network", "网络", "Network");
         Both("Nav.Battery", "电池", "Battery");
         Both("Nav.Sensors", "传感器", "Sensors");
-        Both("Nav.Processes", "进程", "Processes");
+                Both("Nav.Processes", "进程", "Processes");
+        Both("Nav.Other", "其他设备", "Other Devices");
         Both("Nav.LangToggle", "EN / 中文", "中文 / EN");
 
         Both("Common.NotAvailable", "不可用", "N/A");
@@ -60,7 +61,11 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Overview.Down", "↓", "↓");
         Both("Overview.Up", "↑", "↑");
         Both("Overview.Refreshing", "实时刷新中（1 秒）", "Live refresh (1s)");
-        Both("Overview.BatteryHealth", "健康度", "Health");
+                Both("Overview.BatteryHealth", "健康度", "Health");
+        Both("Overview.CpuTemp", "CPU 温度", "CPU Temp");
+        Both("Overview.GpuTemp", "GPU 温度", "GPU Temp");
+        Both("Overview.Fan", "风扇转速", "Fan Speed");
+        Both("Overview.Uptime", "运行时长", "Uptime");
 
         Both("Detail.Inventory", "硬件清单", "Hardware Inventory");
         Both("Detail.Live", "运行指标", "Live Metrics");
@@ -70,7 +75,25 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.Model", "型号", "Model");
         Both("Detail.Cores", "核心数", "Cores");
         Both("Detail.Threads", "线程数", "Threads");
-        Both("Detail.BaseClock", "基础频率", "Base Clock");
+                Both("Detail.BaseClock", "基础频率", "Base Clock");
+        Both("Detail.Architecture", "架构", "Architecture");
+        Both("Detail.Socket", "插槽", "Socket");
+        Both("Detail.L2Cache", "L2 缓存", "L2 Cache");
+        Both("Detail.L3Cache", "L3 缓存", "L3 Cache");
+        Both("Detail.CurrentClock", "当前频率", "Current Clock");
+        Both("Detail.ProcessorId", "处理器 ID", "Processor ID");
+        Both("Detail.MediaType", "介质类型", "Media Type");
+        Both("Detail.BusType", "总线", "Bus");
+        Both("Detail.Firmware", "固件版本", "Firmware");
+        Both("Detail.NetSpeed", "速率", "Speed");
+        Both("Detail.NetType", "类型", "Type");
+        Both("Detail.CycleCount", "循环次数", "Cycle Count");
+        Both("Detail.SystemManufacturer", "系统制造商", "System Manufacturer");
+        Both("Detail.SystemModel", "系统型号", "System Model");
+        Both("Detail.BiosDate", "BIOS 日期", "BIOS Date");
+        Both("Detail.Displays", "显示器", "Displays");
+        Both("Detail.Audio", "音频设备", "Audio Devices");
+        Both("Detail.Usb", "USB 设备", "USB Devices");
         Both("Detail.Manufacturer", "制造商", "Manufacturer");
         Both("Detail.Capacity", "容量", "Capacity");
         Both("Detail.Speed", "频率", "Speed");

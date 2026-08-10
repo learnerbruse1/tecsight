@@ -17,29 +17,27 @@ public partial class OverviewPage : UserControl
 
         var cpu = inv.Cpus.FirstOrDefault();
         var gpu = inv.Gpus.OrderByDescending(g => g.MemoryBytes ?? 0).FirstOrDefault();
+        var disk = inv.Disks.FirstOrDefault();
+        var net = inv.NetworkAdapters.FirstOrDefault(n => n.IsPhysical == true) ?? inv.NetworkAdapters.FirstOrDefault();
+        var bat = inv.Battery;
         var gpuClock = m.Sensors.FirstOrDefault(s =>
             s.SensorName.Equals("GPU Core", StringComparison.OrdinalIgnoreCase) && s.Unit == "MHz")?.Value;
         var cpuSub = (cpu?.Name ?? loc["Common.NotAvailable"]) + (m.CpuFrequencyMhz.HasValue ? $"  ·  {Format.FreqGhz(m.CpuFrequencyMhz)}" : "");
         var gpuSub = (gpu?.Name ?? loc["Common.NotAvailable"]) + (gpuClock.HasValue ? $"  ·  {Format.FreqMhz(gpuClock)}" : "");
-        var disk = inv.Disks.FirstOrDefault();
-        var net = inv.NetworkAdapters.FirstOrDefault(n => n.IsPhysical == true) ?? inv.NetworkAdapters.FirstOrDefault();
-        var bat = inv.Battery;
-
-        // 关键温度 = 各温度传感器中的最高值；只取单位 °C 且落在合理范围（0–150°C），
-        // 避免把 GPU 核心频率(MHz)/负载(%)等同名传感器误当作温度。
-        var temps = m.Sensors
-            .Where(s => s.Unit == "°C"
-                        && (s.SensorName.Contains("CPU Package", StringComparison.OrdinalIgnoreCase)
-                            || s.SensorName.Contains("GPU Core", StringComparison.OrdinalIgnoreCase)
-                            || s.SensorName.Equals("Temperature", StringComparison.OrdinalIgnoreCase))
-                        && s.Value is > 0 and < 150)
-            .Select(s => s.Value!.Value)
-            .ToList();
-        double? keyTemp = temps.Count > 0 ? temps.Max() : null;
 
         var memSubtitle = m.MemoryTotalBytes.HasValue
             ? $"{Format.Bytes(m.MemoryTotalBytes)}  ({inv.MemoryModules.Count}×)"
             : loc["Common.NotAvailable"];
+
+        var cpuTemp = PreferNamedTemp(m.Sensors, MatchesCpuHw, "CPU Package");
+        var gpuTemp = PreferNamedTemp(m.Sensors, MatchesGpuHw, "GPU Core");
+        var fanVals = m.Sensors
+            .Where(s => s.Unit == "RPM" || s.SensorName.Contains("Fan", StringComparison.OrdinalIgnoreCase))
+            .Select(s => s.Value)
+            .Where(v => v is > 0)
+            .Select(v => v!.Value)
+            .ToList();
+        double? fanRpm = fanVals.Count > 0 ? fanVals.Max() : null;
 
         Cards.ItemsSource = new List<OverviewCard>
         {
@@ -52,7 +50,10 @@ public partial class OverviewPage : UserControl
                 net?.Name ?? loc["Common.NotAvailable"]),
             new(loc["Overview.Battery"], $"{Format.Pct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "⚡" : "")}",
                 bat is null ? loc["Common.NotAvailable"] : BatterySubtitle(bat, loc)),
-            new(loc["Overview.KeyTemp"], keyTemp.HasValue ? $"{keyTemp.Value:0.#} °C" : loc["Common.NotAvailable"]),
+            new(loc["Overview.CpuTemp"], cpuTemp.HasValue ? $"{cpuTemp.Value:0.#} °C" : loc["Common.NotAvailable"]),
+            new(loc["Overview.GpuTemp"], gpuTemp.HasValue ? $"{gpuTemp.Value:0.#} °C" : loc["Common.NotAvailable"]),
+            new(loc["Overview.Fan"], fanRpm.HasValue ? $"{fanRpm.Value:0} RPM" : loc["Common.NotAvailable"]),
+            new(loc["Overview.Uptime"], Format.Uptime(m.SystemUptimeSeconds, loc.CurrentLanguage)),
             new(loc["Overview.Motherboard"],
                 inv.Motherboard is { } mb ? $"{mb.Manufacturer} {mb.Product}".Trim() : loc["Common.NotAvailable"],
                 inv.Motherboard?.BiosVersion ?? loc["Common.NotAvailable"]),
@@ -60,12 +61,40 @@ public partial class OverviewPage : UserControl
         };
     }
 
+    /// <summary>取硬件温度：优先指定名称（如 GPU Core），否则取该硬件最高温度。</summary>
+    private static double? PreferNamedTemp(IEnumerable<SensorReading> sensors, Func<string, bool> hwMatch, string preferred)
+    {
+        var vals = sensors
+            .Where(s => s.Unit == "°C" && hwMatch(s.HardwareName) && s.Value is > 0 and < 150)
+            .Select(s => (Name: s.SensorName, V: s.Value!.Value))
+            .ToList();
+        if (vals.Count == 0) return null;
+        var pref = vals.Where(x => x.Name.Contains(preferred, StringComparison.OrdinalIgnoreCase)).Select(x => x.V).ToList();
+        return (pref.Count > 0 ? pref : vals.Select(x => x.V)).Max();
+    }
+
+    private static bool MatchesCpuHw(string name) =>
+        name.Contains("CPU", StringComparison.OrdinalIgnoreCase)
+        || name.Contains("Intel", StringComparison.OrdinalIgnoreCase)
+        || name.Contains("AMD", StringComparison.OrdinalIgnoreCase)
+        || name.Contains("Core", StringComparison.OrdinalIgnoreCase)
+        || name.Contains("Package", StringComparison.OrdinalIgnoreCase);
+
+    private static bool MatchesGpuHw(string name) =>
+        name.Contains("GPU", StringComparison.OrdinalIgnoreCase)
+        || name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
+        || name.Contains("RTX", StringComparison.OrdinalIgnoreCase)
+        || name.Contains("GTX", StringComparison.OrdinalIgnoreCase)
+        || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
+        || name.Contains("Graphics", StringComparison.OrdinalIgnoreCase);
+
     private static string BatterySubtitle(BatteryInfo b, LocalizationManager loc)
     {
+        var text = b.DeviceName ?? loc["Common.NotAvailable"];
         if (b.FullChargeCapacityWh is double full && b.DesignedCapacityWh is double design && design > 0)
         {
-            return $"{b.DeviceName}  {loc["Overview.BatteryHealth"]} {full / design * 100:0}%";
+            text += $"  {loc["Overview.BatteryHealth"]} {full / design * 100:0}%";
         }
-        return b.DeviceName ?? loc["Common.NotAvailable"];
+        return text;
     }
 }

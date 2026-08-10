@@ -9,6 +9,13 @@ public static class Format
     public static string Number(double? v) => v.HasValue ? v.Value.ToString("0.##") : "—";
     public static string FreqMhz(double? mhz) => mhz.HasValue ? $"{mhz.Value:0} MHz" : "—";
     public static string FreqGhz(double? mhz) => mhz.HasValue ? $"{mhz.Value / 1000.0:0.00} GHz" : "—";
+    public static string LinkSpeed(long? bps) => bps switch
+    {
+        >= 1_000_000_000 => $"{bps.Value / 1_000_000_000.0:0.0} Gbps",
+        >= 1_000_000 => $"{bps.Value / 1_000_000.0:0} Mbps",
+        >= 1000 => $"{bps.Value / 1000.0:0} Kbps",
+        _ => "—",
+    };
 
     /// <summary>运行时长（秒 → 天/小时/分，按语言）。</summary>
     public static string Uptime(double? seconds, string lang)

@@ -97,7 +97,13 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.Cores"], c.CoreCount.ToString()));
                     rows.Add(new StaticRow(loc["Detail.Threads"], c.LogicalProcessorCount.ToString()));
                     rows.Add(new StaticRow(loc["Detail.BaseClock"], c.BaseClockGhz.HasValue ? $"{c.BaseClockGhz.Value:0.0} GHz" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.CurrentClock"], c.CurrentClockMhz.HasValue ? $"{c.CurrentClockMhz.Value:0} MHz" : loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Manufacturer"], c.Manufacturer ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Architecture"], c.Architecture ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Socket"], c.SocketDesignation ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.L2Cache"], c.L2CacheKb.HasValue ? $"{c.L2CacheKb.Value / 1024.0:0.0} MB" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.L3Cache"], c.L3CacheKb.HasValue ? $"{c.L3CacheKb.Value / 1024.0:0.0} MB" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.ProcessorId"], c.ProcessorId ?? loc["Common.NotAvailable"]));
                 }
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.CpuUsage"],
@@ -134,6 +140,9 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.Model"], d.Model ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Capacity"], Format.Bytes(d.CapacityBytes)));
                     rows.Add(new StaticRow(loc["Detail.Serial"], d.SerialNumber ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.MediaType"], d.MediaType ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.BusType"], d.BusType ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Firmware"], d.FirmwareVersion ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Health"], HealthText(d.Health, loc)));
                 }
                 if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
@@ -206,6 +215,9 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.Manufacturer"], mb.Manufacturer ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Product"], mb.Product ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Bios"], mb.BiosVersion ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.BiosDate"], mb.BiosDate ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.SystemManufacturer"], mb.SystemManufacturer ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.SystemModel"], mb.SystemModel ?? loc["Common.NotAvailable"]));
                 }
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.Uptime"],
@@ -216,7 +228,7 @@ public partial class DetailPage : UserControl
             {
                 var rows = inv.NetworkAdapters
                     .Select(n => (IDetailRow)new StaticRow(n.Name ?? loc["Common.NotAvailable"],
-                        $"{n.MacAddress ?? "—"}  {(n.IsPhysical == true ? loc["Detail.Yes"] : loc["Detail.No"])}"))
+                        $"{n.MacAddress ?? "—"}  {(n.IsPhysical == true ? loc["Detail.Yes"] : loc["Detail.No"])}  {loc["Detail.NetSpeed"]} {Format.LinkSpeed(n.SpeedBps)}  {n.AdapterType ?? ""}".Trim()))
                     .ToList();
                 if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
@@ -243,6 +255,7 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.Model"], b.DeviceName ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.DesignCapacity"], b.DesignedCapacityWh.HasValue ? $"{b.DesignedCapacityWh.Value:0.0} Wh" : loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.FullChargeCapacity"], b.FullChargeCapacityWh.HasValue ? $"{b.FullChargeCapacityWh.Value:0.0} Wh" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.CycleCount"], b.CycleCount.HasValue ? b.CycleCount.Value.ToString() : loc["Common.NotAvailable"]));
                     if (b.FullChargeCapacityWh is double full && b.DesignedCapacityWh is double design && design > 0)
                     {
                         rows.Add(new StaticRow(loc["Detail.BatteryLoss"], $"{Math.Max(0, (1 - full / design) * 100):0.0}%"));
@@ -262,6 +275,27 @@ public partial class DetailPage : UserControl
             case AppPage.Sensors:
                 sensorFilter = v => v.Snapshot.Metrics.Sensors.ToList();
                 break;
+            case AppPage.OtherDevices:
+            {
+                var displayRows = inv.Displays
+                    .Select(d => (IDetailRow)new StaticRow(d.Name ?? loc["Common.NotAvailable"], $"{d.Manufacturer ?? ""}  {d.PnpDeviceId ?? ""}".Trim()))
+                    .ToList();
+                if (displayRows.Count == 0) displayRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Displays"], displayRows));
+
+                var audioRows = inv.AudioDevices
+                    .Select(a => (IDetailRow)new StaticRow(a.Name ?? loc["Common.NotAvailable"], $"{a.Manufacturer ?? ""}  {a.Status ?? ""}".Trim()))
+                    .ToList();
+                if (audioRows.Count == 0) audioRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Audio"], audioRows));
+
+                var usbRows = inv.UsbDevices
+                    .Select(u => (IDetailRow)new StaticRow(u.Name ?? loc["Common.NotAvailable"], u.Manufacturer ?? loc["Common.NotAvailable"]))
+                    .ToList();
+                if (usbRows.Count == 0) usbRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Usb"], usbRows));
+                break;
+            }
         }
 
         if (sensorFilter is not null)
