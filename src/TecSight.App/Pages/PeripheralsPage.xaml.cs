@@ -53,7 +53,7 @@ public partial class PeripheralsPage : UserControl
             {
                 _scanning = false;
             }
-            if (devices is not null)
+            if (devices is not null && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
             {
                 var items = devices;
                 Dispatcher.Invoke(() => Show(_vm!, items));

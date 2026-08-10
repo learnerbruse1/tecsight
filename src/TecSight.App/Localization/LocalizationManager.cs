@@ -42,7 +42,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Common.Unknown", "未知", "Unknown");
         Both("Common.Good", "良好", "Good");
         Both("Common.Warning", "注意", "Warning");
-        Both("Common.Critical", "危险", "Critical");
+                Both("Common.Critical", "危险", "Critical");
+        Both("Common.RestartAsAdmin", "以管理员权限重启", "Restart as admin");
 
         Both("Export.Json", "导出 JSON", "Export JSON");
         Both("Export.Txt", "导出 TXT", "Export TXT");
@@ -160,7 +161,9 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.VramFree", "显存空闲", "VRAM Free");
         Both("Detail.VramUsage", "显存占用", "VRAM Usage");
         Both("Detail.NoSensors", "无传感器数据", "No sensor data");
-        Both("Detail.NoSmart", "无 SMART 属性（可能需要管理员权限）", "No SMART attributes (may require admin)");
+                Both("Detail.NoSmart", "无 SMART 属性（可能需要管理员权限）", "No SMART attributes (may require admin)");
+        Both("Detail.NoCpuTemp", "未检测到 CPU 温度", "No CPU temperature detected");
+        Both("Detail.AdminHint", "部分传感器（CPU 温度 / 风扇转速）需要管理员权限或硬件支持，可用右上角按钮以管理员权限重启", "Some sensors (CPU temp / fan speed) need admin rights or hardware support — use the top-right button to restart as admin");
         Both("Detail.BatteryLevel", "电量", "Charge Level");
         Both("Detail.Ip", "IP 地址", "IP Address");
         Both("Detail.Gateway", "网关", "Gateway");

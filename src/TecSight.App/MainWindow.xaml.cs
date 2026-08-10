@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -76,7 +77,7 @@ public partial class MainWindow : Window
                 }
             }
 
-            if (snapshot is not null)
+            if (snapshot is not null && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
             {
                 var snap = snapshot;
                 Dispatcher.Invoke(() =>
@@ -136,6 +137,26 @@ public partial class MainWindow : Window
     {
         ThemeManager.Toggle();
         ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
+    }
+
+    /// <summary>以管理员权限重启，以便读取需要内核驱动的传感器（CPU 温度/风扇等）。</summary>
+    private void AdminRestart_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = Environment.ProcessPath ?? "TecSight.App.exe",
+                UseShellExecute = true,
+                Verb = "runas",
+            };
+            Process.Start(psi);
+            Application.Current.Shutdown();
+        }
+        catch
+        {
+            // 用户取消 UAC 或启动失败：保持当前会话
+        }
     }
 
     private void CompatButton_Click(object sender, RoutedEventArgs e) => ExportCompat();

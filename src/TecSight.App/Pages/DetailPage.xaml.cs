@@ -327,6 +327,11 @@ public partial class DetailPage : UserControl
                 sensorRows.Add(new LiveRow(FormatSensorLabel(s), FormatSensorValue(s)));
             }
             var sensorList = sensorRows.Cast<IDetailRow>().ToList();
+            // CPU 页：若无温度读数，给出原因提示（需管理员/硬件支持）
+            if (category == AppPage.Cpu && !sensorRows.Any(r => r.Value.Contains("°C", StringComparison.Ordinal)))
+            {
+                sensorList.Insert(0, new StaticRow(loc["Detail.NoCpuTemp"], loc["Detail.AdminHint"]));
+            }
             if (sensorList.Count == 0) sensorList.Add(new StaticRow(loc["Detail.Sensors"], loc["Detail.NoSensors"]));
             sections.Add(new DetailSection(loc["Detail.Sensors"], sensorList));
         }
