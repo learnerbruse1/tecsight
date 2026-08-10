@@ -65,4 +65,4 @@ public sealed class LiveRow : IDetailRow, INotifyPropertyChanged
 }
 
 /// <summary>概览卡片。</summary>
-public sealed record OverviewCard(string Label, string Value);
+public sealed record OverviewCard(string Label, string Value, string? Subtitle = null);

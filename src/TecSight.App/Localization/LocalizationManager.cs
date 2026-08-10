@@ -33,6 +33,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Nav.Network", "网络", "Network");
         Both("Nav.Battery", "电池", "Battery");
         Both("Nav.Sensors", "传感器", "Sensors");
+        Both("Nav.Processes", "进程", "Processes");
         Both("Nav.LangToggle", "EN / 中文", "中文 / EN");
 
         Both("Common.NotAvailable", "不可用", "N/A");
@@ -43,6 +44,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
 
         Both("Export.Json", "导出 JSON", "Export JSON");
         Both("Export.Txt", "导出 TXT", "Export TXT");
+        Both("Export.Compat", "兼容性报告", "Compat Report");
         Both("Export.Saved", "已导出：", "Exported: ");
 
         Both("Overview.Computer", "计算机", "Computer");
@@ -53,13 +55,17 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Overview.Network", "网络", "Network");
         Both("Overview.Battery", "电池", "Battery");
         Both("Overview.KeyTemp", "关键温度", "Key Temp");
+        Both("Overview.Motherboard", "主板", "Motherboard");
+        Both("Overview.System", "系统", "System");
         Both("Overview.Down", "↓", "↓");
         Both("Overview.Up", "↑", "↑");
         Both("Overview.Refreshing", "实时刷新中（1 秒）", "Live refresh (1s)");
+        Both("Overview.BatteryHealth", "健康度", "Health");
 
         Both("Detail.Inventory", "硬件清单", "Hardware Inventory");
         Both("Detail.Live", "运行指标", "Live Metrics");
         Both("Detail.Sensors", "传感器读数", "Sensor Readings");
+        Both("Detail.Smart", "SMART 属性", "SMART Attributes");
         Both("Detail.History", "历史趋势（最近 1 小时）", "History (last hour)");
         Both("Detail.Model", "型号", "Model");
         Both("Detail.Cores", "核心数", "Cores");
@@ -70,6 +76,10 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.Speed", "频率", "Speed");
         Both("Detail.PartNumber", "部件号", "Part Number");
         Both("Detail.Serial", "序列号", "Serial Number");
+        Both("Detail.Slot", "插槽", "Slot");
+        Both("Detail.Type", "类型", "Type");
+        Both("Detail.ConfigClock", "实际频率", "Configured Clock");
+        Both("Detail.Voltage", "电压", "Voltage");
         Both("Detail.Health", "健康度", "Health");
         Both("Detail.Vram", "显存", "VRAM");
         Both("Detail.Driver", "驱动版本", "Driver");
@@ -81,6 +91,10 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.Charging", "充电中", "Charging");
         Both("Detail.Computer", "计算机", "Computer");
         Both("Detail.Os", "操作系统", "Operating System");
+        Both("Detail.Uptime", "运行时长", "Uptime");
+        Both("Detail.DesignCapacity", "设计容量", "Design Capacity");
+        Both("Detail.FullChargeCapacity", "满充容量", "Full Charge Capacity");
+        Both("Detail.BatteryLoss", "损耗", "Wear");
         Both("Detail.CpuUsage", "CPU 使用率", "CPU Usage");
         Both("Detail.MemUsage", "内存使用率", "Memory Usage");
         Both("Detail.MemUsed", "已用 / 总计", "Used / Total");
@@ -90,8 +104,15 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.NetUp", "上传", "Upload");
         Both("Detail.GpuUsage", "GPU 使用率", "GPU Usage");
         Both("Detail.BatteryLevel", "电量", "Charge Level");
+        Both("Detail.Ip", "IP 地址", "IP Address");
+        Both("Detail.Gateway", "网关", "Gateway");
+        Both("Detail.Dns", "DNS", "DNS");
         Both("Detail.Yes", "是", "Yes");
         Both("Detail.No", "否", "No");
+
+        Both("Process.Name", "进程", "Process");
+        Both("Process.Cpu", "CPU 占用", "CPU");
+        Both("Process.Memory", "内存占用", "Memory");
     }
 
     public string CurrentLanguage

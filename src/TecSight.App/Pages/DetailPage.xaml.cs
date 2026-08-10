@@ -18,6 +18,8 @@ public partial class DetailPage : UserControl
         public required List<Func<LiveMetrics, double?>?> MetricSelectors { get; init; }
         public required Func<MainViewModel, IReadOnlyList<SensorReading>> SensorFilter { get; init; }
         public required List<LiveRow> SensorRows { get; init; }
+        public required Func<MainViewModel, IReadOnlyList<SmartAttributeReading>> SmartFilter { get; init; }
+        public required List<LiveRow> SmartRows { get; init; }
     }
 
     public DetailPage() => InitializeComponent();
@@ -39,20 +41,29 @@ public partial class DetailPage : UserControl
         }
 
         var sensors = model.SensorFilter(vm);
-        var n = Math.Min(sensors.Count, model.SensorRows.Count);
-        for (var i = 0; i < n; i++)
+        var sn = Math.Min(sensors.Count, model.SensorRows.Count);
+        for (var i = 0; i < sn; i++)
         {
             model.SensorRows[i].Value = FormatSensorValue(sensors[i]);
+        }
+
+        var smart = model.SmartFilter(vm);
+        var sm = Math.Min(smart.Count, model.SmartRows.Count);
+        for (var i = 0; i < sm; i++)
+        {
+            model.SmartRows[i].Value = FormatSmartValue(smart[i]);
         }
     }
 
     private PageModel EnsureModel(MainViewModel vm)
     {
-        var sensors = _model?.SensorFilter(vm) ?? [];
+        var sensorCount = _model?.SensorFilter(vm).Count ?? 0;
+        var smartCount = _model?.SmartFilter(vm).Count ?? 0;
         var needRebuild = _model is null
                           || _model.Category != _category
                           || vm.Snapshot.CapturedAt == DateTimeOffset.MinValue
-                          || _model.SensorRows.Count != sensors.Count;
+                          || _model.SensorRows.Count != sensorCount
+                          || _model.SmartRows.Count != smartCount;
         if (needRebuild)
         {
             _model = BuildModel(vm, _category);
@@ -70,7 +81,9 @@ public partial class DetailPage : UserControl
         var formatters = new List<Func<MainViewModel, string>>();
         var selectors = new List<Func<LiveMetrics, double?>?>();
         var sensorRows = new List<LiveRow>();
+        var smartRows = new List<LiveRow>();
         Func<MainViewModel, IReadOnlyList<SensorReading>>? sensorFilter = null;
+        Func<MainViewModel, IReadOnlyList<SmartAttributeReading>>? smartFilter = null;
 
         switch (category)
         {
@@ -93,11 +106,17 @@ public partial class DetailPage : UserControl
             }
             case AppPage.Memory:
             {
-                var rows = inv.MemoryModules
-                    .Select(mm => (IDetailRow)new StaticRow(
-                        $"{mm.Manufacturer ?? loc["Common.Unknown"]} {mm.PartNumber ?? ""}".Trim(),
-                        $"{Format.Bytes(ParseBytes(mm.CapacityBytes))}  {mm.Speed ?? loc["Common.NotAvailable"]} MHz"))
-                    .ToList();
+                var rows = new List<IDetailRow>();
+                foreach (var mm in inv.MemoryModules)
+                {
+                    rows.Add(new StaticRow(loc["Detail.Model"], $"{mm.Manufacturer ?? loc["Common.Unknown"]} {mm.PartNumber ?? ""}".Trim()));
+                    rows.Add(new StaticRow(loc["Detail.Capacity"], $"{Format.Bytes(ParseBytes(mm.CapacityBytes))}  {mm.Speed ?? loc["Common.NotAvailable"]} MHz"));
+                    rows.Add(new StaticRow(loc["Detail.Type"], mm.MemoryType ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.ConfigClock"], mm.ConfiguredClockMhz ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Voltage"], mm.ConfiguredVoltageMv ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Serial"], mm.SerialNumber ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Slot"], mm.DeviceLocator ?? loc["Common.NotAvailable"]));
+                }
                 if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.MemUsage"],
@@ -125,6 +144,7 @@ public partial class DetailPage : UserControl
                     s.SensorName.Contains("SMART", StringComparison.OrdinalIgnoreCase)
                     || s.SensorName.Contains("Remaining Life", StringComparison.OrdinalIgnoreCase)
                     || s.SensorName.Contains("Wear", StringComparison.OrdinalIgnoreCase)).ToList();
+                smartFilter = v => v.Snapshot.Metrics.SmartAttributes;
                 break;
             }
             case AppPage.Gpu:
@@ -140,7 +160,15 @@ public partial class DetailPage : UserControl
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.GpuUsage"],
                     v => Format.Pct(v.Snapshot.Metrics.GpuUsagePercent), m => m.GpuUsagePercent);
-                sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s => MatchesGpu(s.HardwareName)).ToList();
+                // F6：GPU 引擎拆分 + GPU 相关传感器
+                sensorFilter = v =>
+                {
+                    var list = v.Snapshot.Metrics.GpuEngines
+                        .Select(e => new SensorReading("GPU Engine", e.EngineType, e.Percent, "%"))
+                        .ToList();
+                    list.AddRange(v.Snapshot.Metrics.Sensors.Where(s => MatchesGpu(s.HardwareName)));
+                    return list;
+                };
                 break;
             }
             case AppPage.Motherboard:
@@ -157,6 +185,8 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.Bios"], mb.BiosVersion ?? loc["Common.NotAvailable"]));
                 }
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                AddMetric(metricRows, formatters, selectors, loc["Detail.Uptime"],
+                    v => Format.Uptime(v.Snapshot.Metrics.SystemUptimeSeconds, v.Loc.CurrentLanguage), null);
                 break;
             }
             case AppPage.Network:
@@ -171,15 +201,35 @@ public partial class DetailPage : UserControl
                     v => Format.Bps(v.Snapshot.Metrics.NetworkDownloadBps), m => m.NetworkDownloadBps);
                 AddMetric(metricRows, formatters, selectors, loc["Detail.NetUp"],
                     v => Format.Bps(v.Snapshot.Metrics.NetworkUploadBps), m => m.NetworkUploadBps);
+                // F10：IP / 网关 / DNS
+                if (inv.NetworkConfigurations.Count > 0)
+                {
+                    var ipRows = inv.NetworkConfigurations
+                        .Select(cfg => (IDetailRow)new StaticRow(cfg.Description ?? loc["Common.NotAvailable"],
+                            $"{loc["Detail.Ip"]}: {Join(cfg.IpAddresses)}   {loc["Detail.Gateway"]}: {Join(cfg.Gateways)}   {loc["Detail.Dns"]}: {Join(cfg.DnsServers)}"))
+                        .ToList();
+                    sections.Add(new DetailSection(loc["Detail.Ip"], ipRows));
+                }
                 break;
             }
             case AppPage.Battery:
             {
                 var rows = new List<IDetailRow>();
                 if (inv.Battery is { } b)
+                {
                     rows.Add(new StaticRow(loc["Detail.Model"], b.DeviceName ?? loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.DesignCapacity"], b.DesignedCapacityWh.HasValue ? $"{b.DesignedCapacityWh.Value:0.0} Wh" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.FullChargeCapacity"], b.FullChargeCapacityWh.HasValue ? $"{b.FullChargeCapacityWh.Value:0.0} Wh" : loc["Common.NotAvailable"]));
+                    if (b.FullChargeCapacityWh is double full && b.DesignedCapacityWh is double design && design > 0)
+                    {
+                        rows.Add(new StaticRow(loc["Detail.BatteryLoss"], $"{Math.Max(0, (1 - full / design) * 100):0.0}%"));
+                        rows.Add(new StaticRow(loc["Detail.Health"], $"{full / design * 100:0.0}%"));
+                    }
+                }
                 else
+                {
                     rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                }
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.BatteryLevel"],
                     v => $"{Format.Pct(v.Snapshot.Metrics.BatteryChargePercent)} {(v.Snapshot.Metrics.BatteryIsCharging == true ? "⚡" + v.Loc["Detail.Charging"] : "")}",
@@ -200,6 +250,15 @@ public partial class DetailPage : UserControl
             sections.Add(new DetailSection(loc["Detail.Sensors"], sensorRows.Cast<IDetailRow>().ToList()));
         }
 
+        if (smartFilter is not null)
+        {
+            foreach (var a in smartFilter(vm))
+            {
+                smartRows.Add(new LiveRow(FormatSmartLabel(a), FormatSmartValue(a)));
+            }
+            sections.Add(new DetailSection(loc["Detail.Smart"], smartRows.Cast<IDetailRow>().ToList()));
+        }
+
         return new PageModel
         {
             Category = category,
@@ -209,6 +268,8 @@ public partial class DetailPage : UserControl
             MetricSelectors = selectors,
             SensorFilter = sensorFilter ?? (_ => []),
             SensorRows = sensorRows,
+            SmartFilter = smartFilter ?? (_ => []),
+            SmartRows = smartRows,
         };
     }
 
@@ -226,6 +287,20 @@ public partial class DetailPage : UserControl
     private static string FormatSensorLabel(SensorReading s) => $"{s.HardwareName} / {s.SensorName}";
 
     private static string FormatSensorValue(SensorReading s) => $"{Format.Number(s.Value)} {s.Unit}".Trim();
+
+    private static string FormatSmartLabel(SmartAttributeReading a) => $"{a.DiskName} / {a.Id:D2} {a.Name}";
+
+    private static string FormatSmartValue(SmartAttributeReading a)
+    {
+        var parts = new List<string>();
+        if (a.CurrentValue.HasValue) parts.Add($"V {a.CurrentValue.Value:0}");
+        if (a.Worst.HasValue) parts.Add($"W {a.Worst.Value}");
+        if (a.Threshold > 0) parts.Add($"T {a.Threshold}");
+        if (!string.IsNullOrEmpty(a.RawValue)) parts.Add($"Raw {a.RawValue}");
+        return string.Join("  ", parts);
+    }
+
+    private static string Join(IReadOnlyList<string> items) => items.Count > 0 ? string.Join(", ", items) : "—";
 
     private static bool MatchesCpu(string name) =>
         name.Contains("CPU", StringComparison.OrdinalIgnoreCase)

@@ -21,6 +21,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         inv.Gpus = QueryGpus();
         inv.Motherboard = QueryMotherboard();
         inv.NetworkAdapters = QueryNetwork();
+        inv.NetworkConfigurations = QueryNetworkConfig();
         inv.Battery = QueryBattery();
         return inv;
     }
@@ -38,9 +39,31 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static List<MemoryModuleInfo> QueryMemory()
     {
-        return SafeQuery("SELECT Capacity, Speed, Manufacturer, PartNumber FROM Win32_PhysicalMemory",
-            row => new MemoryModuleInfo(GetString(row, "Capacity"), GetString(row, "Speed"), GetString(row, "Manufacturer"), GetString(row, "PartNumber")));
+        return SafeQuery(
+            "SELECT Capacity, Speed, Manufacturer, PartNumber, SerialNumber, SMBIOSMemoryType, ConfiguredClockSpeed, ConfiguredVoltage, DeviceLocator FROM Win32_PhysicalMemory",
+            row => new MemoryModuleInfo(
+                GetString(row, "Capacity"),
+                GetString(row, "Speed"),
+                GetString(row, "Manufacturer"),
+                GetString(row, "PartNumber"),
+                GetString(row, "SerialNumber"),
+                MemoryTypeName(GetInt(row, "SMBIOSMemoryType")),
+                GetString(row, "ConfiguredClockSpeed"),
+                GetInt(row, "ConfiguredVoltage") is int mv && mv > 0 ? $"{mv / 1000.0:0.000} V" : null,
+                GetString(row, "DeviceLocator")));
     }
+
+    private static string? MemoryTypeName(int? t) => t switch
+    {
+        20 => "DDR",
+        21 => "DDR2",
+        24 => "DDR3",
+        26 => "DDR4",
+        27 => "LPDDR4",
+        34 => "DDR5",
+        35 => "LPDDR5",
+        _ => t.HasValue ? $"Type {t}" : null,
+    };
 
     private static List<DiskInfo> QueryDisks()
     {
@@ -79,6 +102,17 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
             .Select(x => x.Info)
             .Distinct()
             .ToList();
+    }
+
+    private static List<NetworkConfigInfo> QueryNetworkConfig()
+    {
+        return SafeQuery(
+            "SELECT Description, IPAddress, DefaultIPGateway, DNSServerSearchOrder FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled=TRUE",
+            row => new NetworkConfigInfo(
+                GetString(row, "Description"),
+                GetStringArray(row, "IPAddress"),
+                GetStringArray(row, "DefaultIPGateway"),
+                GetStringArray(row, "DNSServerSearchOrder")));
     }
 
     private static BatteryInfo? QueryBattery()
@@ -127,6 +161,19 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     private static string? GetString(ManagementBaseObject o, string p)
     {
         try { return o[p]?.ToString(); } catch { return null; }
+    }
+
+    private static IReadOnlyList<string> GetStringArray(ManagementBaseObject o, string p)
+    {
+        try
+        {
+            if (o[p] is string[] arr) return arr.Where(s => !string.IsNullOrEmpty(s)).ToArray();
+            return [];
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     private static int? GetInt(ManagementBaseObject o, string p)

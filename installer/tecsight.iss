@@ -21,6 +21,7 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+SetupIconFile=..\src\TecSight.App\Assets\tecsight.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]

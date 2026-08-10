@@ -1,0 +1,11 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="BgBrush" Color="#1E1E1E"/>
+    <SolidColorBrush x:Key="NavBgBrush" Color="#252526"/>
+    <SolidColorBrush x:Key="HeaderBgBrush" Color="#2D2D30"/>
+    <SolidColorBrush x:Key="HeaderFgBrush" Color="#EDEDED"/>
+    <SolidColorBrush x:Key="CardBgBrush" Color="#2D2D30"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#3F3F46"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#E8E8E8"/>
+    <SolidColorBrush x:Key="SubTextBrush" Color="#9A9A9A"/>
+</ResourceDictionary>

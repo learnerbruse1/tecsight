@@ -26,7 +26,8 @@ public sealed class SnapshotCollector : ISnapshotCollector
         var inventory = TryCaptureInventory();
         var metrics = TryCaptureMetrics();
         var sensors = TryCaptureSensors();
-        return new Snapshot(DateTimeOffset.Now, inventory, metrics with { Sensors = sensors });
+        var smart = _sensorProvider is ISmartProvider sp ? TryCaptureSmart(sp) : [];
+        return new Snapshot(DateTimeOffset.Now, inventory, metrics with { Sensors = sensors, SmartAttributes = smart });
     }
 
     private HardwareInventory TryCaptureInventory()
@@ -58,6 +59,18 @@ public sealed class SnapshotCollector : ISnapshotCollector
         try
         {
             return _sensorProvider.Capture() ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private IReadOnlyList<SmartAttributeReading> TryCaptureSmart(ISmartProvider provider)
+    {
+        try
+        {
+            return provider.CaptureSmart() ?? [];
         }
         catch
         {

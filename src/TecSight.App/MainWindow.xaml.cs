@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using TecSight.App.Pages;
+using TecSight.App.Themes;
 using TecSight.Core;
 using TecSight.Core.Models;
 
@@ -14,6 +15,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _vm;
     private readonly OverviewPage _overview = new();
     private readonly DetailPage _detail = new();
+    private readonly ProcessesPage _processes = new();
     private readonly DispatcherTimer _timer;
     private readonly PerformanceMetricsProvider _metricsProvider = new();
     private readonly LibreHardwareSensorProvider _sensorProvider = new();
@@ -87,13 +89,17 @@ public partial class MainWindow : Window
 
     private void UpdateCurrentPage()
     {
-        if (_vm.CurrentPage == AppPage.Overview)
+        switch (_vm.CurrentPage)
         {
-            _overview.Update(_vm);
-        }
-        else
-        {
-            _detail.Update(_vm);
+            case AppPage.Overview:
+                _overview.Update(_vm);
+                break;
+            case AppPage.Processes:
+                _processes.Update(_vm);
+                break;
+            default:
+                _detail.Update(_vm);
+                break;
         }
     }
 
@@ -101,8 +107,13 @@ public partial class MainWindow : Window
     {
         if (_vm is null) return;
         var page = _vm.CurrentPage;
-        PageHost.Content = page == AppPage.Overview ? _overview : _detail;
-        if (page != AppPage.Overview)
+        PageHost.Content = page switch
+        {
+            AppPage.Overview => _overview,
+            AppPage.Processes => _processes,
+            _ => _detail,
+        };
+        if (page != AppPage.Overview && page != AppPage.Processes)
         {
             _detail.SetCategory(page);
         }
@@ -115,6 +126,14 @@ public partial class MainWindow : Window
         Title = _vm.Loc["App.Title"];
         UpdateCurrentPage();
     }
+
+    private void ThemeButton_Click(object sender, RoutedEventArgs e)
+    {
+        ThemeManager.Toggle();
+        ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
+    }
+
+    private void CompatButton_Click(object sender, RoutedEventArgs e) => ExportCompat();
 
     private void ExportJson_Click(object sender, RoutedEventArgs e) => Export("json");
 
@@ -132,6 +151,17 @@ public partial class MainWindow : Window
             ? _vm.Exporter.ExportJson(_vm.Snapshot)
             : _vm.Exporter.ExportTxt(_vm.Snapshot);
         File.WriteAllText(dlg.FileName, content);
+    }
+
+    private void ExportCompat()
+    {
+        var dlg = new SaveFileDialog
+        {
+            FileName = $"tecsight-compat-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
+            Filter = "文本文件 (*.txt)|*.txt",
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        File.WriteAllText(dlg.FileName, CompatibilityReporter.Build(_vm.Snapshot));
     }
 
     protected override void OnClosed(EventArgs e)

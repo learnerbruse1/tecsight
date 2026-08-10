@@ -6,7 +6,8 @@ namespace TecSight.Core;
 
 /// <summary>
 /// 运行指标真实数据源：性能计数器 + 原生 API，免管理员权限。
-/// CPU/内存/磁盘 I/O/网络/GPU 占用/电池；任一计数器不可用时该指标降级为 null。
+/// CPU/内存/磁盘 I/O/网络/GPU 占用/电池/进程排行/GPU 引擎/运行时长；
+/// 任一计数器不可用时该指标降级为 null / 空。
 /// </summary>
 public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposable
 {
@@ -25,6 +26,8 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     private List<PerformanceCounter> _gpuEngines = [];
     private DateTimeOffset _lastNetworkRefresh = DateTimeOffset.MinValue;
     private DateTimeOffset _lastGpuRefresh = DateTimeOffset.MinValue;
+    private readonly Dictionary<int, (string Name, TimeSpan Cpu)> _prevProcessCpu = new();
+    private DateTimeOffset _prevProcessTime = DateTimeOffset.MinValue;
 
     public PerformanceMetricsProvider()
     {
@@ -40,6 +43,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         var ts = DateTimeOffset.Now;
         var (total, used) = MemoryBytes();
         var (batteryPercent, batteryCharging) = BatteryStatus();
+        var (engines, gpuPercent) = ReadGpuUsage();
         return new LiveMetrics
         {
             Timestamp = ts,
@@ -49,19 +53,19 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             MemoryTotalBytes = total,
             DiskReadBytesPerSec = ReadCounter(_diskRead),
             DiskWriteBytesPerSec = ReadCounter(_diskWrite),
-            GpuUsagePercent = Clamp01(ReadGpuUsage()),
+            GpuUsagePercent = gpuPercent,
             NetworkDownloadBps = ReadNetworkDown(),
             NetworkUploadBps = ReadNetworkUp(),
             BatteryChargePercent = batteryPercent,
             BatteryIsCharging = batteryCharging,
+            SystemUptimeSeconds = ReadUptimeSeconds(),
+            Processes = CaptureProcesses(),
+            GpuEngines = engines,
         };
     }
 
-    /// <summary>
-    /// GPU 占用：按引擎类型分组求和，取最繁忙的引擎类型（通常为 3D）。
-    /// 避免把 3D+Video+Copy 等并行引擎简单相加导致超过 100%。
-    /// </summary>
-    private double? ReadGpuUsage()
+    /// <summary>GPU 占用：按引擎类型分组求和，取最繁忙的引擎类型（通常 3D），并返回各引擎明细。</summary>
+    private (IReadOnlyList<GpuEngineUsage> Engines, double? Percent) ReadGpuUsage()
     {
         try
         {
@@ -74,11 +78,13 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
                 var type = ExtractEngineType(c.InstanceName);
                 sums[type] = sums.GetValueOrDefault(type) + v;
             }
-            return sums.Count == 0 ? 0 : sums.Values.Max();
+            var engines = sums.Select(kv => new GpuEngineUsage(kv.Key, Math.Clamp(kv.Value, 0, 100))).ToList();
+            var max = engines.Count == 0 ? 0 : engines.Max(e => e.Percent);
+            return (engines, Clamp01(max));
         }
         catch
         {
-            return null;
+            return ([], null);
         }
     }
 
@@ -86,6 +92,60 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     {
         var idx = instance.LastIndexOf(EngineTypePrefix, StringComparison.OrdinalIgnoreCase);
         return idx >= 0 ? instance[(idx + EngineTypePrefix.Length)..] : instance;
+    }
+
+    /// <summary>进程占用排行：按 CPU 增量排序取前 20（首帧 CPU 为 null，内存始终可用）。</summary>
+    private IReadOnlyList<ProcessUsage> CaptureProcesses()
+    {
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var dt = (now - _prevProcessTime).TotalSeconds;
+            var list = new List<ProcessUsage>();
+            foreach (var p in Process.GetProcesses())
+            {
+                try
+                {
+                    var name = string.IsNullOrEmpty(p.ProcessName) ? $"PID {p.Id}" : p.ProcessName;
+                    var mem = p.WorkingSet64;
+                    double? cpuPct = null;
+                    if (_prevProcessCpu.TryGetValue(p.Id, out var prev) && dt > 0)
+                    {
+                        var delta = (p.TotalProcessorTime - prev.Cpu).TotalSeconds;
+                        cpuPct = Math.Clamp(delta / dt / Environment.ProcessorCount * 100, 0, 100);
+                    }
+                    _prevProcessCpu[p.Id] = (name, p.TotalProcessorTime);
+                    list.Add(new ProcessUsage(name, cpuPct, mem));
+                }
+                catch
+                {
+                    // 其他用户进程访问受限等，跳过（降级）
+                }
+                finally
+                {
+                    p.Dispose();
+                }
+            }
+            _prevProcessTime = now;
+            if (_prevProcessCpu.Count > 2000) _prevProcessCpu.Clear();
+            return list.OrderByDescending(x => x.CpuPercent ?? -1).Take(20).ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private double? ReadUptimeSeconds()
+    {
+        try
+        {
+            return GetTickCount64() / 1000.0;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private double? ReadNetworkDown()
@@ -228,7 +288,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         DisposeAll(_gpuEngines);
     }
 
-    // ---- 原生 API：GlobalMemoryStatusEx ----
+    // ---- 原生 API ----
     [StructLayout(LayoutKind.Sequential)]
     private struct MemoryStatusEx
     {
@@ -246,6 +306,23 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx lpBuffer);
 
+    [DllImport("kernel32.dll")]
+    private static extern bool GetSystemPowerStatus(out SystemPowerStatus sps);
+
+    [DllImport("kernel32.dll")]
+    private static extern ulong GetTickCount64();
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SystemPowerStatus
+    {
+        public byte AclLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public uint BatteryLifeTime;
+        public uint BatteryFullLifeTime;
+    }
+
     private static (double? Total, double? Used) MemoryBytes()
     {
         try
@@ -260,21 +337,6 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             return (null, null);
         }
     }
-
-    // ---- 原生 API：GetSystemPowerStatus（电池电量与充电状态） ----
-    [StructLayout(LayoutKind.Sequential)]
-    private struct SystemPowerStatus
-    {
-        public byte AclLineStatus;
-        public byte BatteryFlag;
-        public byte BatteryLifePercent;
-        public byte SystemStatusFlag;
-        public uint BatteryLifeTime;
-        public uint BatteryFullLifeTime;
-    }
-
-    [DllImport("kernel32.dll")]
-    private static extern bool GetSystemPowerStatus(out SystemPowerStatus sps);
 
     private static (double? Percent, bool? Charging) BatteryStatus()
     {

@@ -15,5 +15,9 @@ public sealed record LiveMetrics
     public double? NetworkUploadBps { get; init; }
     public double? BatteryChargePercent { get; init; }
     public bool? BatteryIsCharging { get; init; }
+    public double? SystemUptimeSeconds { get; init; }
     public IReadOnlyList<SensorReading> Sensors { get; init; } = [];
+    public IReadOnlyList<SmartAttributeReading> SmartAttributes { get; init; } = [];
+    public IReadOnlyList<ProcessUsage> Processes { get; init; } = [];
+    public IReadOnlyList<GpuEngineUsage> GpuEngines { get; init; } = [];
 }
