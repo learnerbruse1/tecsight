@@ -21,7 +21,7 @@ public static class CompatibilityReporter
         Row(sb, "CPU", inv.Cpus.Count, inv.Cpus.FirstOrDefault()?.Name);
         Row(sb, "Memory", inv.MemoryModules.Count, $"{inv.MemoryModules.Count} module(s)");
         Row(sb, "Storage", inv.Disks.Count, inv.Disks.FirstOrDefault()?.Model);
-        Row(sb, "GPU", inv.Gpus.Count, inv.Gpus.OrderByDescending(g => g.MemoryBytes ?? 0).FirstOrDefault()?.Name);
+        Row(sb, "GPU", inv.Gpus.Count, HardwareClassifier.PickPrimaryGpu(inv.Gpus)?.Name);
         Row(sb, "Motherboard", inv.Motherboard is null ? 0 : 1, inv.Motherboard?.Product);
         Row(sb, "Network adapters", inv.NetworkAdapters.Count, $"{inv.NetworkAdapters.Count} adapter(s)");
         Row(sb, "IP configurations", inv.NetworkConfigurations.Count, $"{inv.NetworkConfigurations.Count} enabled");

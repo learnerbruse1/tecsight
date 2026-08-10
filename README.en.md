@@ -30,7 +30,9 @@ dotnet publish src/TecSight.App -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -o publish
 ```
 
-Output: `publish/TecSight.App.exe` (self-contained single file, no install needed). You can also run `scripts/publish.ps1`.`n`n**Installer** (requires [Inno Setup 6](https://jrsoftware.org/isdl.php)): `./scripts/build-installer.ps1` → produces `installer/Output/TecSight-Setup-1.0.0.exe` (bilingual wizard, Start Menu/desktop shortcuts, uninstaller, no admin needed).
+Output: `publish/TecSight.App.exe` (self-contained single file, no install needed). You can also run `scripts/publish.ps1`.
+
+**Installer** (requires [Inno Setup 6](https://jrsoftware.org/isdl.php)): `./scripts/build-installer.ps1` → produces `installer/Output/TecSight-Setup-1.0.0.exe` (bilingual wizard, Start Menu/desktop shortcuts, uninstaller, no admin needed).
 
 ## Tech Stack
 

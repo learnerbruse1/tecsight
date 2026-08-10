@@ -30,7 +30,9 @@ dotnet publish src/TecSight.App -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -o publish
 ```
 
-发布产物：`publish/TecSight.App.exe`（自包含单文件，免安装）。也可直接运行 `scripts/publish.ps1`。`n`n**安装程序**（需 [Inno Setup 6](https://jrsoftware.org/isdl.php)）：`./scripts/build-installer.ps1` → 生成 `installer/Output/TecSight-Setup-1.0.0.exe`（中英双语向导、开始菜单/桌面快捷方式、卸载器，免管理员权限）。
+发布产物：`publish/TecSight.App.exe`（自包含单文件，免安装）。也可直接运行 `scripts/publish.ps1`。
+
+**安装程序**（需 [Inno Setup 6](https://jrsoftware.org/isdl.php)）：`./scripts/build-installer.ps1` → 生成 `installer/Output/TecSight-Setup-1.0.0.exe`（中英双语向导、开始菜单/桌面快捷方式、卸载器，免管理员权限）。
 
 ## 技术栈
 

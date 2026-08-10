@@ -16,7 +16,7 @@ public partial class OverviewPage : UserControl
         var loc = vm.Loc;
 
         var cpu = inv.Cpus.FirstOrDefault();
-        var gpu = inv.Gpus.OrderByDescending(g => g.MemoryBytes ?? 0).FirstOrDefault();
+        var gpu = HardwareClassifier.PickPrimaryGpu(inv.Gpus);
         var disk = inv.Disks.FirstOrDefault();
         var net = inv.NetworkAdapters.FirstOrDefault(n => n.IsPhysical == true) ?? inv.NetworkAdapters.FirstOrDefault();
         var bat = inv.Battery;
@@ -29,8 +29,8 @@ public partial class OverviewPage : UserControl
             ? $"{Format.Bytes(m.MemoryTotalBytes)}  ({inv.MemoryModules.Count}×)"
             : loc["Common.NotAvailable"];
 
-        var cpuTemp = PreferNamedTemp(m.Sensors, MatchesCpuHw, "CPU Package");
-        var gpuTemp = PreferNamedTemp(m.Sensors, MatchesGpuHw, "GPU Core");
+        var cpuTemp = PreferNamedTemp(m.Sensors, HardwareClassifier.MatchesCpuHw, "CPU Package");
+        var gpuTemp = PreferNamedTemp(m.Sensors, HardwareClassifier.MatchesGpuHw, "GPU Core");
         var fanVals = m.Sensors
             .Where(s => s.Unit == "RPM" || s.SensorName.Contains("Fan", StringComparison.OrdinalIgnoreCase))
             .Select(s => s.Value)
@@ -72,21 +72,6 @@ public partial class OverviewPage : UserControl
         var pref = vals.Where(x => x.Name.Contains(preferred, StringComparison.OrdinalIgnoreCase)).Select(x => x.V).ToList();
         return (pref.Count > 0 ? pref : vals.Select(x => x.V)).Max();
     }
-
-    private static bool MatchesCpuHw(string name) =>
-        name.Contains("CPU", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Intel", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("AMD", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Core", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Package", StringComparison.OrdinalIgnoreCase);
-
-    private static bool MatchesGpuHw(string name) =>
-        name.Contains("GPU", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("RTX", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("GTX", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Graphics", StringComparison.OrdinalIgnoreCase);
 
     private static string BatterySubtitle(BatteryInfo b, LocalizationManager loc)
     {

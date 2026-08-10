@@ -108,7 +108,7 @@ public partial class DetailPage : UserControl
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.CpuUsage"],
                     v => Format.Pct(v.Snapshot.Metrics.CpuUsagePercent), m => m.CpuUsagePercent);
-                sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s => MatchesCpu(s.HardwareName)).ToList();
+                sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s => HardwareClassifier.MatchesCpuHw(s.HardwareName)).ToList();
                 break;
             }
             case AppPage.Memory:
@@ -175,9 +175,7 @@ public partial class DetailPage : UserControl
                 // 显存：优先用 LHM 传感器（MB），规避 Win32 AdapterRAM 32 位溢出错误
                 var vramTotalMb = GpuSensorValue(vm, "GPU Memory Total");
                 rows.Add(new StaticRow(loc["Detail.VramTotal"],
-                    vramTotalMb.HasValue
-                        ? Format.Bytes(vramTotalMb.Value * 1024 * 1024)
-                        : (inv.Gpus.FirstOrDefault()?.MemoryBytes is long mb && mb > 0 ? Format.Bytes(mb) : loc["Common.NotAvailable"])));
+                    vramTotalMb.HasValue ? Format.Bytes(vramTotalMb.Value * 1024 * 1024) : loc["Common.NotAvailable"]));
                 if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.GpuUsage"],
@@ -198,7 +196,7 @@ public partial class DetailPage : UserControl
                     var list = v.Snapshot.Metrics.GpuEngines
                         .Select(e => new SensorReading("GPU Engine", e.EngineType, e.Percent, "%"))
                         .ToList();
-                    list.AddRange(v.Snapshot.Metrics.Sensors.Where(s => MatchesGpu(s.HardwareName)));
+                    list.AddRange(v.Snapshot.Metrics.Sensors.Where(s => HardwareClassifier.MatchesGpuHw(s.HardwareName)));
                     return list;
                 };
                 break;
@@ -391,21 +389,6 @@ public partial class DetailPage : UserControl
         HealthStatus.Critical => loc["Common.Critical"],
         _ => loc["Common.NotAvailable"],
     };
-
-    private static bool MatchesCpu(string name) =>
-        name.Contains("CPU", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Core", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Package", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Intel", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("AMD", StringComparison.OrdinalIgnoreCase);
-
-    private static bool MatchesGpu(string name) =>
-        name.Contains("GPU", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("RTX", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("GTX", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Graphics", StringComparison.OrdinalIgnoreCase);
 
     private static double? ParseBytes(string? s) => long.TryParse(s, out var b) ? b : null;
 }

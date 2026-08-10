@@ -73,6 +73,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         try
         {
             RefreshGpuCountersIfStale();
+            if (_gpuEngines.Count == 0) return ([], null); // 无计数器 → 不可用，不造假
             var sums = new Dictionary<string, double>();
             foreach (var c in _gpuEngines)
             {
@@ -156,6 +157,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         try
         {
             RefreshNetworkCountersIfStale();
+            if (_networkDown.Count == 0) return null; // 无计数器 → 不可用，不造假
             var sum = 0.0;
             foreach (var c in _networkDown)
             {
@@ -175,6 +177,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         try
         {
             RefreshNetworkCountersIfStale();
+            if (_networkUp.Count == 0) return null;
             var sum = 0.0;
             foreach (var c in _networkUp)
             {
