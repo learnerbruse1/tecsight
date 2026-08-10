@@ -21,14 +21,17 @@ public partial class OverviewPage : UserControl
         var net = inv.NetworkAdapters.FirstOrDefault(n => n.IsPhysical == true) ?? inv.NetworkAdapters.FirstOrDefault();
         var bat = inv.Battery;
 
+        // 关键温度 = 各温度传感器中的最高值；只取单位 °C 且落在合理范围（0–150°C），
+        // 避免把 GPU 核心频率(MHz)/负载(%)等同名传感器误当作温度。
         var temps = m.Sensors
-            .Where(s => s.SensorName.Contains("CPU Package", StringComparison.OrdinalIgnoreCase)
-                        || s.SensorName.Contains("GPU Core", StringComparison.OrdinalIgnoreCase)
-                        || s.SensorName.Equals("Temperature", StringComparison.OrdinalIgnoreCase))
-            .Select(s => s.Value)
-            .Where(v => v.HasValue)
+            .Where(s => s.Unit == "°C"
+                        && (s.SensorName.Contains("CPU Package", StringComparison.OrdinalIgnoreCase)
+                            || s.SensorName.Contains("GPU Core", StringComparison.OrdinalIgnoreCase)
+                            || s.SensorName.Equals("Temperature", StringComparison.OrdinalIgnoreCase))
+                        && s.Value is > 0 and < 150)
+            .Select(s => s.Value!.Value)
             .ToList();
-        var keyTemp = temps.Count > 0 ? temps.Max() : null;
+        double? keyTemp = temps.Count > 0 ? temps.Max() : null;
 
         var memSubtitle = m.MemoryTotalBytes.HasValue
             ? $"{Format.Bytes(m.MemoryTotalBytes)}  ({inv.MemoryModules.Count}×)"
