@@ -93,7 +93,15 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.BiosDate", "BIOS 日期", "BIOS Date");
         Both("Detail.Displays", "显示器", "Displays");
         Both("Detail.Audio", "音频设备", "Audio Devices");
-        Both("Detail.Usb", "USB 设备", "USB Devices");
+                Both("Detail.Usb", "USB 设备", "USB Devices");
+        Both("Detail.Keyboards", "键盘", "Keyboards");
+        Both("Detail.Mice", "鼠标", "Mice");
+        Both("Detail.Printers", "打印机", "Printers");
+        Both("Detail.Default", "默认", "Default");
+        Both("Detail.OsArch", "系统架构", "OS Architecture");
+        Both("Detail.FirmwareType", "固件类型", "Firmware Type");
+        Both("Detail.InstallDate", "安装日期", "Installed");
+        Both("Detail.LastBoot", "上次启动", "Last Boot");
         Both("Detail.Manufacturer", "制造商", "Manufacturer");
         Both("Detail.Capacity", "容量", "Capacity");
         Both("Detail.Speed", "频率", "Speed");

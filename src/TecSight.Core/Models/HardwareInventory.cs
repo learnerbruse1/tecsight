@@ -60,6 +60,10 @@ public sealed class HardwareInventory
     public string? ComputerName { get; set; }
     public string? OsCaption { get; set; }
     public string? OsVersion { get; set; }
+    public string? OsArchitecture { get; set; }
+    public string? OsInstallDate { get; set; }
+    public string? LastBootTime { get; set; }
+    public string? FirmwareType { get; set; }
     public IReadOnlyList<CpuInfo> Cpus { get; set; } = [];
     public IReadOnlyList<MemoryModuleInfo> MemoryModules { get; set; } = [];
     public IReadOnlyList<DiskInfo> Disks { get; set; } = [];
@@ -71,4 +75,7 @@ public sealed class HardwareInventory
     public IReadOnlyList<DisplayInfo> Displays { get; set; } = [];
     public IReadOnlyList<AudioDeviceInfo> AudioDevices { get; set; } = [];
     public IReadOnlyList<UsbDeviceInfo> UsbDevices { get; set; } = [];
+    public IReadOnlyList<PnPDeviceInfo> Keyboards { get; set; } = [];
+    public IReadOnlyList<PnPDeviceInfo> PointingDevices { get; set; } = [];
+    public IReadOnlyList<PrinterInfo> Printers { get; set; } = [];
 }

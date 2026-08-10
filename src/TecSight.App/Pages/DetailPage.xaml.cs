@@ -207,6 +207,10 @@ public partial class DetailPage : UserControl
                 {
                     new StaticRow(loc["Detail.Computer"], inv.ComputerName ?? loc["Common.NotAvailable"]),
                     new StaticRow(loc["Detail.Os"], $"{inv.OsCaption ?? ""} {inv.OsVersion ?? ""}".Trim()),
+                    new StaticRow(loc["Detail.OsArch"], inv.OsArchitecture ?? loc["Common.NotAvailable"]),
+                    new StaticRow(loc["Detail.FirmwareType"], inv.FirmwareType ?? loc["Common.NotAvailable"]),
+                    new StaticRow(loc["Detail.InstallDate"], inv.OsInstallDate ?? loc["Common.NotAvailable"]),
+                    new StaticRow(loc["Detail.LastBoot"], inv.LastBootTime ?? loc["Common.NotAvailable"]),
                 };
                 if (inv.Motherboard is { } mb)
                 {
@@ -276,7 +280,9 @@ public partial class DetailPage : UserControl
             case AppPage.OtherDevices:
             {
                 var displayRows = inv.Displays
-                    .Select(d => (IDetailRow)new StaticRow(d.Name ?? loc["Common.NotAvailable"], $"{d.Manufacturer ?? ""}  {d.PnpDeviceId ?? ""}".Trim()))
+                    .Select(d => (IDetailRow)new StaticRow(
+                        string.IsNullOrEmpty(d.Name) ? (d.Manufacturer ?? loc["Common.NotAvailable"]) : d.Name!,
+                        $"{d.Manufacturer ?? ""}  {d.PnpDeviceId ?? ""}  {d.SerialNumber ?? ""}  {(d.ManufactureYear.HasValue ? d.ManufactureYear.Value.ToString() + " 年" : "")}".Trim()))
                     .ToList();
                 if (displayRows.Count == 0) displayRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Displays"], displayRows));
@@ -292,6 +298,24 @@ public partial class DetailPage : UserControl
                     .ToList();
                 if (usbRows.Count == 0) usbRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Usb"], usbRows));
+
+                var kbRows = inv.Keyboards
+                    .Select(k => (IDetailRow)new StaticRow(k.Name ?? loc["Common.NotAvailable"], k.Description ?? ""))
+                    .ToList();
+                if (kbRows.Count == 0) kbRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Keyboards"], kbRows));
+
+                var mouseRows = inv.PointingDevices
+                    .Select(m => (IDetailRow)new StaticRow(m.Name ?? loc["Common.NotAvailable"], m.Description ?? ""))
+                    .ToList();
+                if (mouseRows.Count == 0) mouseRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Mice"], mouseRows));
+
+                var printerRows = inv.Printers
+                    .Select(pr => (IDetailRow)new StaticRow((pr.Name ?? loc["Common.NotAvailable"]) + (pr.IsDefault == true ? "  ⭐" : ""), pr.DriverName ?? ""))
+                    .ToList();
+                if (printerRows.Count == 0) printerRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
+                sections.Add(new DetailSection(loc["Detail.Printers"], printerRows));
                 break;
             }
         }

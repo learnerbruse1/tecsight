@@ -15,6 +15,10 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         var inv = new HardwareInventory { ComputerName = SafeString(() => Environment.MachineName) };
         inv.OsCaption = QueryFirstString("SELECT Caption FROM Win32_OperatingSystem", "Caption");
         inv.OsVersion = QueryFirstString("SELECT Version FROM Win32_OperatingSystem", "Version");
+        inv.OsArchitecture = QueryFirstString("SELECT OSArchitecture FROM Win32_OperatingSystem", "OSArchitecture");
+        inv.OsInstallDate = FormatCimDate(QueryFirstString("SELECT InstallDate FROM Win32_OperatingSystem", "InstallDate"));
+        inv.LastBootTime = FormatCimDate(QueryFirstString("SELECT LastBootUpTime FROM Win32_OperatingSystem", "LastBootUpTime"));
+        inv.FirmwareType = SafeString(() => Environment.GetEnvironmentVariable("firmware_type")?.Trim() is { Length: > 0 } f ? f : null);
         inv.Cpus = QueryCpus();
         inv.MemoryModules = QueryMemory();
         inv.Disks = QueryDisks();
@@ -26,6 +30,9 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         inv.Displays = QueryDisplays();
         inv.AudioDevices = QueryAudio();
         inv.UsbDevices = QueryUsb();
+        inv.Keyboards = QueryKeyboards();
+        inv.PointingDevices = QueryPointing();
+        inv.Printers = QueryPrinters();
         return inv;
     }
 
@@ -198,9 +205,38 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static List<DisplayInfo> QueryDisplays()
     {
+        // 优先 EDID（WmiMonitorID, root\wmi），可拿到真实厂商/生产年份/序列号
+        var edid = SafeQuery("root\\wmi", "SELECT UserFriendlyName, ManufacturerName, SerialNumberID, YearOfManufacture FROM WmiMonitorID",
+            row => new DisplayInfo(
+                DecodeWmiString(row["UserFriendlyName"]),
+                DecodeWmiString(row["ManufacturerName"]),
+                PnpDeviceId: null,
+                SerialNumber: DecodeWmiString(row["SerialNumberID"]),
+                ManufactureYear: GetInt(row, "YearOfManufacture")));
+        if (edid.Count > 0) return edid;
+
         return SafeQuery(
             "SELECT Name, MonitorManufacturer, PNPDeviceID FROM Win32_DesktopMonitor",
             row => new DisplayInfo(GetString(row, "Name"), GetString(row, "MonitorManufacturer"), GetString(row, "PNPDeviceID")));
+    }
+
+    private static string DecodeWmiString(object? v)
+    {
+        try
+        {
+            if (v is Array arr)
+            {
+                var sb = new System.Text.StringBuilder();
+                foreach (var item in arr)
+                {
+                    var u = Convert.ToUInt16(item);
+                    if (u >= 32 && u < 127) sb.Append((char)u);
+                }
+                return sb.ToString().Trim();
+            }
+        }
+        catch { }
+        return "";
     }
 
     private static List<AudioDeviceInfo> QueryAudio()
@@ -213,6 +249,40 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     {
         return SafeQuery("SELECT Name, Manufacturer FROM Win32_PnPEntity WHERE PNPClass='USB'",
             row => new UsbDeviceInfo(GetString(row, "Name"), GetString(row, "Manufacturer")));
+    }
+
+    private static List<PnPDeviceInfo> QueryKeyboards()
+    {
+        return SafeQuery("SELECT Name, Description FROM Win32_Keyboard",
+            row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description")));
+    }
+
+    private static List<PnPDeviceInfo> QueryPointing()
+    {
+        return SafeQuery("SELECT Name, Description FROM Win32_PointingDevice",
+            row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description")));
+    }
+
+    private static List<PrinterInfo> QueryPrinters()
+    {
+        return SafeQuery("SELECT Name, DriverName, Default FROM Win32_Printer",
+            row => new PrinterInfo(GetString(row, "Name"), GetString(row, "DriverName"), GetBool(row, "Default")));
+    }
+
+    private static string? FormatCimDate(string? d)
+    {
+        if (string.IsNullOrEmpty(d) || d.Length < 14) return d;
+        try
+        {
+            var dt = new DateTime(
+                int.Parse(d.Substring(0, 4)), int.Parse(d.Substring(4, 2)), int.Parse(d.Substring(6, 2)),
+                int.Parse(d.Substring(8, 2)), int.Parse(d.Substring(10, 2)), int.Parse(d.Substring(12, 2)));
+            return dt.ToString("yyyy-MM-dd HH:mm");
+        }
+        catch
+        {
+            return d;
+        }
     }
 
     /// <summary>
