@@ -12,6 +12,7 @@ obj/
 # Publish output
 publish/
 artifacts/
+installer/Output/
 
 # OS
 Thumbs.db
