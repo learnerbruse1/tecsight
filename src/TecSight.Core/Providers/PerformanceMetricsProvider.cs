@@ -12,6 +12,10 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
 {
     public string Name => "performance-counters";
 
+    private const byte BatteryPercentUnknown = 255;
+    private const byte BatteryFlagCharging = 0x08;
+    private const string EngineTypePrefix = "engtype_";
+
     private readonly PerformanceCounter? _cpu;
     private readonly PerformanceCounter? _memoryPercent;
     private readonly PerformanceCounter? _diskRead;
@@ -80,8 +84,8 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
 
     private static string ExtractEngineType(string instance)
     {
-        var idx = instance.LastIndexOf("engtype_", StringComparison.OrdinalIgnoreCase);
-        return idx >= 0 ? instance[(idx + 8)..] : instance;
+        var idx = instance.LastIndexOf(EngineTypePrefix, StringComparison.OrdinalIgnoreCase);
+        return idx >= 0 ? instance[(idx + EngineTypePrefix.Length)..] : instance;
     }
 
     private double? ReadNetworkDown()
@@ -277,13 +281,20 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         try
         {
             if (!GetSystemPowerStatus(out var sps)) return (null, null);
-            double? percent = sps.BatteryLifePercent == 255 ? null : sps.BatteryLifePercent;
-            bool? charging = sps.AclLineStatus switch
+            double? percent = sps.BatteryLifePercent == BatteryPercentUnknown ? null : sps.BatteryLifePercent;
+            bool? charging;
+            if (sps.AclLineStatus == 0)
             {
-                1 => (sps.BatteryFlag & 0x08) != 0, // 接电源：8 = 充电中
-                0 => false,                         // 用电池
-                _ => null,
-            };
+                charging = false; // 用电池
+            }
+            else if (sps.BatteryFlag == BatteryPercentUnknown)
+            {
+                charging = null; // 接电源但状态未知
+            }
+            else
+            {
+                charging = (sps.BatteryFlag & BatteryFlagCharging) != 0; // 接电源：8 = 充电中
+            }
             return (percent, charging);
         }
         catch

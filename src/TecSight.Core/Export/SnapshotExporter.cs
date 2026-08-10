@@ -38,11 +38,11 @@ public sealed class SnapshotExporter : ISnapshotExporter
         sb.AppendLine($"  GPU: {string.Join("; ", inv.Gpus.Select(g => g.Name ?? "不可用 N/A"))}");
         if (inv.Motherboard is { } mb)
         {
-            sb.AppendLine($"  主板 Motherboard: {mb.Manufacturer ?? "?"} {mb.Product ?? ""}".TrimEnd());
+            sb.AppendLine($"  主板 Motherboard: {mb.Manufacturer ?? "N/A"} {mb.Product ?? ""}".TrimEnd());
         }
         foreach (var n in inv.NetworkAdapters)
         {
-            sb.AppendLine($"  网卡 Network: {n.Name ?? "不可用 N/A"} ({n.MacAddress ?? "?"})");
+            sb.AppendLine($"  网卡 Network: {n.Name ?? "不可用 N/A"} ({n.MacAddress ?? "N/A"})");
         }
         if (inv.Battery is { } bat)
         {

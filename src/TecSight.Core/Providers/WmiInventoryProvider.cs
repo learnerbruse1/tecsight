@@ -95,17 +95,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     // ---- helpers ----
     private static List<T> SafeQuery<T>(string query, Func<ManagementBaseObject, T> map)
-    {
-        try
-        {
-            using var searcher = new ManagementObjectSearcher(query);
-            return searcher.Get().Cast<ManagementBaseObject>().Select(map).ToList();
-        }
-        catch
-        {
-            return [];
-        }
-    }
+        => SafeQuery("root\\cimv2", query, map);
 
     private static List<T> SafeQuery<T>(string scope, string query, Func<ManagementBaseObject, T> map)
     {

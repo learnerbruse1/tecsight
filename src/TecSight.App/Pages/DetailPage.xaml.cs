@@ -140,7 +140,7 @@ public partial class DetailPage : UserControl
         var loc = vm.Loc;
         var m = vm.Snapshot.Metrics;
         var invRows = vm.Snapshot.Inventory.NetworkAdapters
-            .Select(n => Row(n.Name ?? "?", $"{n.MacAddress ?? "—"}  {(n.IsPhysical == true ? loc["Detail.Yes"] : loc["Detail.No"])}"))
+            .Select(n => Row(n.Name ?? loc["Common.NotAvailable"], $"{n.MacAddress ?? "—"}  {(n.IsPhysical == true ? loc["Detail.Yes"] : loc["Detail.No"])}"))
             .ToList();
         if (invRows.Count == 0) invRows.Add(Row(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
         var liveRows = new List<DetailRow>
