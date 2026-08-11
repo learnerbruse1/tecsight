@@ -54,6 +54,7 @@ public partial class MainWindow : Window
 
         PageHost.Content = _overview;
         _vm.CurrentPage = AppPage.Overview;
+        _overview.Update(_vm); // 首帧即显示占位卡片，避免空白闪屏
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += (_, _) => CollectAsync();
@@ -249,7 +250,12 @@ public partial class MainWindow : Window
         // 保存窗口位置/大小/最大化状态（最小化时用还原边界）
         if (WindowState != WindowState.Minimized)
         {
-            var rb = WindowState == WindowState.Normal ? RestoreBounds : new Rect(Left, Top, Width, Height);
+            // RestoreBounds 在最大化/最小化时为还原边界，在普通状态为当前边界
+            var rb = RestoreBounds;
+            if (rb.Width <= 0 || rb.Height <= 0)
+            {
+                rb = new Rect(Left, Top, Width, Height);
+            }
             AppSettings.SaveWindow(rb.Left, rb.Top, rb.Width, rb.Height, WindowState == WindowState.Maximized);
         }
         base.OnClosed(e);
