@@ -76,12 +76,12 @@ public partial class PeripheralsPage : UserControl
             .OrderBy(g => Array.IndexOf(CategoryOrder, g.Key) is var idx && idx >= 0 ? idx : CategoryOrder.Length)
             .Select(g => new PeripheralGroup(
                 $"{vm.Loc["Peripheral." + g.Key]}  ({g.Count()})",
-                g.Select(d => new PeripheralRow(d.Name ?? "?", DeviceDetail(d, vm))).ToList()))
+                g.Select(d => new PeripheralRow(d.Name ?? "?", DeviceDetail(d))).ToList()))
             .ToList();
         CountText.Text = $"{vm.Loc["Peripheral.Count"]} {devices.Count}  ·  {vm.Loc["Peripheral.UpdatedAt"]} {DateTime.Now:HH:mm:ss}";
     }
 
-    private static string DeviceDetail(PeripheralDevice d, MainViewModel vm)
+    private static string DeviceDetail(PeripheralDevice d)
     {
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(d.Detail)) parts.Add(d.Detail!);

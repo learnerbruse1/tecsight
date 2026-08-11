@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using TecSight.Core.Models;
 
@@ -70,7 +71,7 @@ public static class HtmlReport
 
         sb.AppendLine("<h2>传感器读数</h2><table><tr><th>硬件</th><th>传感器</th><th>值</th></tr>");
         foreach (var s2 in m.Sensors.Take(60))
-            sb.AppendLine($"<tr><td>{H(s2.HardwareName)}</td><td>{H(s2.SensorName)}</td><td>{s2.Value?.ToString("0.#") ?? "N/A"} {H(s2.Unit)}</td></tr>");
+            sb.AppendLine($"<tr><td>{H(s2.HardwareName)}</td><td>{H(s2.SensorName)}</td><td>{s2.Value?.ToString("0.#", CultureInfo.InvariantCulture) ?? "N/A"} {H(s2.Unit)}</td></tr>");
         if (m.Sensors.Count > 60) sb.AppendLine($"<tr><td colspan=\"3\">… 其余 {m.Sensors.Count - 60} 条</td></tr>");
         if (m.Sensors.Count == 0) sb.AppendLine("<tr><td colspan=\"3\">无传感器数据</td></tr>");
         sb.AppendLine("</table></body></html>");
@@ -89,15 +90,15 @@ public static class HtmlReport
     private static void Row(StringBuilder sb, string k, string c, string v) => sb.AppendLine($"<tr><td>{H(k)}</td><td>{H(c)}</td><td>{H(v)}</td></tr>");
 
     private static string H(string? v) => (v ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
-    private static string Pct(double? v) => v.HasValue ? $"{v.Value:0.0}%" : "N/A";
-    private static string Mhz(double? v) => v.HasValue ? $"{v.Value:0} MHz" : "N/A";
-    private static string Bps(double? v) => v.HasValue ? $"{v.Value / 1048576.0:0.00} MB/s" : "N/A";
-    private static string Gb(double? b) => b.HasValue ? $"{b.Value / 1073741824.0:0.0} GB" : "N/A";
-    private static string Gb(long? b) => b.HasValue ? $"{b.Value / 1073741824.0:0.0} GB" : "N/A";
-    private static string Gb(string? s) => long.TryParse(s, out var v) ? $"{v / 1073741824.0:0.0} GB" : "N/A";
-    private static string Wh(double? v) => v.HasValue ? $"{v.Value:0.0} Wh" : "N/A";
+    private static string Pct(double? v) => v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "N/A";
+    private static string Mhz(double? v) => v.HasValue ? v.Value.ToString("0", CultureInfo.InvariantCulture) + " MHz" : "N/A";
+    private static string Bps(double? v) => v.HasValue ? (v.Value / 1048576.0).ToString("0.00", CultureInfo.InvariantCulture) + " MB/s" : "N/A";
+    private static string Gb(double? b) => b.HasValue ? (b.Value / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : "N/A";
+    private static string Gb(long? b) => b.HasValue ? (b.Value / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : "N/A";
+    private static string Gb(string? s) => long.TryParse(s, out var v) ? (v / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : "N/A";
+    private static string Wh(double? v) => v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) + " Wh" : "N/A";
     private static string Up(double? s) => s is double v ? TimeSpan.FromSeconds(v).ToString(@"d\.hh\:mm") : "N/A";
-    private static string LinkSpeed(long? bps) => bps switch { >= 1_000_000_000 => $"{bps.Value / 1_000_000_000.0:0.0} Gbps", >= 1_000_000 => $"{bps.Value / 1_000_000.0:0} Mbps", _ => "" };
-    private static string HealthPct(BatteryInfo b) => b.FullChargeCapacityWh is double f && b.DesignedCapacityWh is double d && d > 0 ? $"{Math.Min(100, f / d * 100):0.0}%" : "N/A";
+    private static string LinkSpeed(long? bps) => bps switch { >= 1_000_000_000 => (bps.Value / 1_000_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + " Gbps", >= 1_000_000 => (bps.Value / 1_000_000.0).ToString("0", CultureInfo.InvariantCulture) + " Mbps", _ => "" };
+    private static string HealthPct(BatteryInfo b) => b.FullChargeCapacityWh is double f && b.DesignedCapacityWh is double d && d > 0 ? Math.Min(100, f / d * 100).ToString("0.0", CultureInfo.InvariantCulture) + "%" : "N/A";
     private static string Hlth(StorageHealth? h) => h?.Status switch { HealthStatus.Good => "良好", HealthStatus.Warning => "注意", HealthStatus.Critical => "危险", _ => "N/A" };
 }

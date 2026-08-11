@@ -5,12 +5,12 @@ namespace TecSight.App;
 /// <summary>数值格式化辅助（使用不变区域设置，避免不同语言环境小数点差异）。</summary>
 public static class Format
 {
-    public static string Pct(double? v) => v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "—";
-    public static string Bytes(double? b) => b.HasValue ? HumanBytes(b.Value) : "—";
-    public static string Bps(double? b) => b.HasValue ? HumanBytes(b.Value) + "/s" : "—";
-    public static string Number(double? v) => v.HasValue ? v.Value.ToString("0.##", CultureInfo.InvariantCulture) : "—";
-    public static string FreqMhz(double? mhz) => mhz.HasValue ? mhz.Value.ToString("0", CultureInfo.InvariantCulture) + " MHz" : "—";
-    public static string FreqGhz(double? mhz) => mhz.HasValue ? (mhz.Value / 1000.0).ToString("0.00", CultureInfo.InvariantCulture) + " GHz" : "—";
+    public static string Pct(double? v) => v is double x && double.IsFinite(x) ? x.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "—";
+    public static string Bytes(double? b) => b is double x && double.IsFinite(x) ? HumanBytes(x) : "—";
+    public static string Bps(double? b) => b is double x && double.IsFinite(x) ? HumanBytes(x) + "/s" : "—";
+    public static string Number(double? v) => v is double x && double.IsFinite(x) ? x.ToString("0.##", CultureInfo.InvariantCulture) : "—";
+    public static string FreqMhz(double? mhz) => mhz is double x && double.IsFinite(x) ? x.ToString("0", CultureInfo.InvariantCulture) + " MHz" : "—";
+    public static string FreqGhz(double? mhz) => mhz is double x && double.IsFinite(x) ? (x / 1000.0).ToString("0.00", CultureInfo.InvariantCulture) + " GHz" : "—";
     public static string LinkSpeed(long? bps) => bps switch
     {
         >= 1_000_000_000 => (bps.Value / 1_000_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + " Gbps",

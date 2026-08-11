@@ -233,16 +233,20 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
 
     public void Dispose()
     {
-        try
+        lock (_gate)
         {
-            if (_opened)
+            try
             {
-                _computer.Close();
+                if (_opened)
+                {
+                    _computer.Close();
+                }
             }
-        }
-        catch
-        {
-            // 忽略关闭异常
+            catch
+            {
+                // 忽略关闭异常
+            }
+            _opened = false;
         }
     }
 }
