@@ -11,7 +11,7 @@
             <ItemsControl x:Name="Groups">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <GroupBox Header="{Binding Title}" Margin="0,6,0,6" Padding="10">
+                        <GroupBox Header="{Binding Title}" Margin="0,6,0,6" Padding="10" Foreground="{DynamicResource TextBrush}">
                             <ItemsControl ItemsSource="{Binding Rows}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>

@@ -47,7 +47,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
 
         Both("Export.Json", "导出 JSON", "Export JSON");
         Both("Export.Txt", "导出 TXT", "Export TXT");
-        Both("Export.Compat", "兼容性报告", "Compat Report");
+                Both("Export.Compat", "兼容性报告", "Compat Report");
+        Both("Export.Copy", "复制摘要", "Copy Summary");
         Both("Export.Saved", "已导出：", "Exported: ");
 
         Both("Overview.Computer", "计算机", "Computer");

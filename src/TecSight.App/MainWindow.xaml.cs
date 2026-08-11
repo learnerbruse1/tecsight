@@ -138,6 +138,7 @@ public partial class MainWindow : Window
     {
         _vm.Loc.CurrentLanguage = _vm.Loc.CurrentLanguage == "zh" ? "en" : "zh";
         Title = _vm.Loc["App.Title"];
+        _detail.InvalidateModel(); // 详情页静态标签按新语言重建
         UpdateCurrentPage();
         AppSettings.Save();
     }
@@ -170,6 +171,18 @@ public partial class MainWindow : Window
     }
 
     private void CompatButton_Click(object sender, RoutedEventArgs e) => ExportCompat();
+
+    private void CopySummary_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Clipboard.SetText(_vm.Exporter.ExportTxt(_vm.Snapshot));
+        }
+        catch
+        {
+            // 剪贴板被占用等异常时忽略
+        }
+    }
 
     private void ExportJson_Click(object sender, RoutedEventArgs e) => Export("json");
 

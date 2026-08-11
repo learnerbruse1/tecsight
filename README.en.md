@@ -10,14 +10,19 @@
 - **Live metrics**: CPU / memory / GPU / disk I/O / network throughput / battery, refreshed every second
 - **Sensors & health**: temperatures, fan speeds, voltages (LibreHardwareMonitor); disk SMART health
 - **History charts**: last-hour trends (ring buffer)
-- **Export**: one-click JSON / TXT snapshot export
-- **Bilingual UI**: switch between Chinese and English anytime (follows system language by default)
+- **Export**: one-click JSON / TXT snapshot, copy summary, compatibility report
+- **Peripherals**: hotplug devices auto-classified (storage/keyboard/mouse/camera/audio/Bluetooth/printer/USB)
+- **Bilingual UI + themes**: switchable and remembered
 
 ## UI
 
-- Left navigation: Overview / CPU / Memory / Storage / GPU / Motherboard & OS / Network / Battery / Sensors
-- Overview page: key usage cards + key temperature
-- Detail pages: full inventory + live values + history charts
+- Left navigation: Overview / CPU / Memory / Storage / GPU / Motherboard & OS / Network / Battery / Sensors / Processes / Other Devices / Peripherals
+- Overview page: 12 cards (hardware models + live usage/frequency/temperature/fan/uptime)
+- Detail pages: full inventory (architecture/cache/SPD/SMART/health/voltage/chemistry) + live values + history charts
+- Peripherals page: hotplug devices auto-classified (5 s refresh + manual refresh)
+- Other Devices page: displays (EDID) / audio / USB / keyboards / mice / printers
+- Bilingual UI + dark/light theme (remembered); copy summary / export JSON·TXT / compatibility report
+- No admin needed; sensors requiring kernel drivers (CPU temp/fans) can be read via "Restart as admin"
 
 ## Build
 
