@@ -3,6 +3,9 @@
     <SolidColorBrush x:Key="BgBrush" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="NavBgBrush" Color="#F7F9FC"/>
     <SolidColorBrush x:Key="NavTextBrush" Color="#14161A"/>
+    <SolidColorBrush x:Key="NavHoverBrush" Color="#EAF0FA"/>
+    <SolidColorBrush x:Key="NavSelectedBrush" Color="#D6E4FF"/>
+    <SolidColorBrush x:Key="NavSelectedTextBrush" Color="#14161A"/>
     <SolidColorBrush x:Key="HeaderBgBrush" Color="#1F2A44"/>
     <SolidColorBrush x:Key="HeaderFgBrush" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="CardBgBrush" Color="#F2F5FA"/>
