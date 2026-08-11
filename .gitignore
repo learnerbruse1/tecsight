@@ -1,4 +1,4 @@
-# .NET build output
+﻿# .NET build output
 bin/
 obj/
 *.user
@@ -17,3 +17,7 @@ installer/Output/
 # OS
 Thumbs.db
 Desktop.ini
+
+# Test coverage output
+TestResults/
+
