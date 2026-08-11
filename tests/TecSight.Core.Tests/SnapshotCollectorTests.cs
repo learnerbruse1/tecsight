@@ -5,7 +5,7 @@ namespace TecSight.Core.Tests;
 
 public class SnapshotCollectorTests
 {
-    private sealed class FakeMetricsProvider : ILiveMetricsProvider
+    internal sealed class FakeMetricsProvider : ILiveMetricsProvider
     {
         public string Name => "fake-metrics";
         public LiveMetrics Capture() => new()
@@ -22,7 +22,7 @@ public class SnapshotCollectorTests
         public LiveMetrics Capture() => throw new InvalidOperationException("metrics unavailable");
     }
 
-    private sealed class FakeInventoryProvider : IHardwareInventoryProvider
+    internal sealed class FakeInventoryProvider : IHardwareInventoryProvider
     {
         public string Name => "fake-inventory";
         public HardwareInventory Capture() => new() { ComputerName = "FAKE-PC", Cpus = [new CpuInfo("Fake CPU", 4, 8, 3.2, "FakeCorp")] };
@@ -95,5 +95,63 @@ public class SnapshotCollectorTests
         Assert.Empty(snapshot.Metrics.Sensors);
         Assert.Equal("FAKE-PC", snapshot.Inventory.ComputerName);
         Assert.Equal(12.5, snapshot.Metrics.CpuUsagePercent);
+    }
+}
+public class SnapshotCollectorSmartTests
+{
+    private sealed class FakeSmartSensorProvider : ISensorProvider, ISmartProvider
+    {
+        public string Name => "fake-smart";
+        public IReadOnlyList<SensorReading> Capture() => [new SensorReading("Disk", "Temperature", 40, "°C")];
+        public IReadOnlyList<SmartAttributeReading> CaptureSmart() =>
+            [new SmartAttributeReading("Disk1", 5, "Reallocated Sectors", 100, 100, 10, "0")];
+    }
+
+    private sealed class ThrowingSmartSensorProvider : ISensorProvider, ISmartProvider
+    {
+        public string Name => "throwing-smart";
+        public IReadOnlyList<SensorReading> Capture() => [new SensorReading("Disk", "Temperature", 40, "°C")];
+        public IReadOnlyList<SmartAttributeReading> CaptureSmart() => throw new InvalidOperationException("smart unavailable");
+    }
+
+    private sealed class PlainSensorProvider : ISensorProvider
+    {
+        public string Name => "plain";
+        public IReadOnlyList<SensorReading> Capture() => [new SensorReading("Disk", "Temperature", 40, "°C")];
+    }
+
+    [Fact]
+    public void Collect_MergesSmartAttributesWhenSensorProviderImplementsISmartProvider()
+    {
+        var collector = new SnapshotCollector(new SnapshotCollectorTests.FakeInventoryProvider(), new SnapshotCollectorTests.FakeMetricsProvider(), new FakeSmartSensorProvider());
+
+        var snapshot = collector.Collect();
+
+        Assert.Single(snapshot.Metrics.SmartAttributes);
+        Assert.Equal("Disk1", snapshot.Metrics.SmartAttributes[0].DiskName);
+        Assert.Equal(5, snapshot.Metrics.SmartAttributes[0].Id);
+        Assert.Equal(40, snapshot.Metrics.Sensors[0].Value);
+    }
+
+    [Fact]
+    public void Collect_WhenSmartProviderThrows_ReturnsNoSmartAttributesAndOthersIntact()
+    {
+        var collector = new SnapshotCollector(new SnapshotCollectorTests.FakeInventoryProvider(), new SnapshotCollectorTests.FakeMetricsProvider(), new ThrowingSmartSensorProvider());
+
+        var snapshot = collector.Collect();
+
+        Assert.Empty(snapshot.Metrics.SmartAttributes);
+        Assert.Equal(40, snapshot.Metrics.Sensors[0].Value);
+        Assert.Equal("FAKE-PC", snapshot.Inventory.ComputerName);
+    }
+
+    [Fact]
+    public void Collect_WhenSensorProviderIsPlain_NoSmartAttributes()
+    {
+        var collector = new SnapshotCollector(new SnapshotCollectorTests.FakeInventoryProvider(), new SnapshotCollectorTests.FakeMetricsProvider(), new PlainSensorProvider());
+
+        var snapshot = collector.Collect();
+
+        Assert.Empty(snapshot.Metrics.SmartAttributes);
     }
 }

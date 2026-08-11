@@ -58,8 +58,12 @@ public sealed class SnapshotExporter : ISnapshotExporter
         }
         sb.AppendLine();
         sb.AppendLine("[其他设备 Other Devices]");
-        sb.AppendLine($"  显示器 Displays: {inv.Displays.Count}  {string.Join("; ", inv.Displays.Select(d => $"{d.Manufacturer ?? ""} {d.Name ?? ""}".Trim()).Where(s => s.Length > 0))}");
-        sb.AppendLine($"  音频 Audio: {inv.AudioDevices.Count}   USB: {inv.UsbDevices.Count}   键盘 Keyboards: {inv.Keyboards.Count}   鼠标 Mice: {inv.PointingDevices.Count}   打印机 Printers: {inv.Printers.Count}");
+        sb.AppendLine($"  显示器 Displays: {inv.Displays.Count}  {JoinNames(inv.Displays.Select(d => $"{d.Manufacturer ?? ""} {d.Name ?? ""}".Trim()))}");
+        sb.AppendLine($"  音频 Audio: {inv.AudioDevices.Count}  {JoinNames(inv.AudioDevices.Select(a => a.Name))}");
+        sb.AppendLine($"  USB: {inv.UsbDevices.Count}  {JoinNames(inv.UsbDevices.Select(u => u.Name))}");
+        sb.AppendLine($"  键盘 Keyboards: {inv.Keyboards.Count}  {JoinNames(inv.Keyboards.Select(k => k.Name))}");
+        sb.AppendLine($"  鼠标 Mice: {inv.PointingDevices.Count}  {JoinNames(inv.PointingDevices.Select(m => m.Name))}");
+        sb.AppendLine($"  打印机 Printers: {inv.Printers.Count}  {JoinNames(inv.Printers.Select(p => (p.IsDefault == true ? "[默认] " : "") + p.Name))}");
         sb.AppendLine();
 
         var m = snapshot.Metrics;
@@ -88,6 +92,12 @@ public sealed class SnapshotExporter : ISnapshotExporter
         }
 
         return sb.ToString();
+    }
+
+    private static string JoinNames(IEnumerable<string?> names)
+    {
+        var list = names.Where(n => !string.IsNullOrWhiteSpace(n)).Take(8).Select(n => n!.Trim()).ToList();
+        return list.Count == 0 ? "" : string.Join("; ", list) + (names.Count() > 8 ? " …" : "");
     }
 
     private static string HealthText(StorageHealth? h) => h?.Status switch

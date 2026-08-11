@@ -45,3 +45,42 @@ public class SnapshotExporterTests
         Assert.Contains("Temperature", txt);
     }
 }
+public class SnapshotExporterDetailsTests
+{
+    private static Snapshot MakeRichSnapshot() => new(
+        DateTimeOffset.UtcNow,
+        new HardwareInventory
+        {
+            Battery = new BatteryInfo("BAT-01", 80, 82.01, 18, "LiP", 16.5, 16.5),
+            Displays = [new DisplayInfo("内置屏", "BOE", null)],
+            UsbDevices = [new UsbDeviceInfo("USB Device", "Mfr")],
+            Printers = [new PrinterInfo("PDF", "Microsoft Print to PDF", true)],
+        },
+        new LiveMetrics
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            Sensors = Enumerable.Range(0, 100).Select(i => new SensorReading("HW", $"Sensor{i}", i, "°C")).ToList(),
+        });
+
+    [Fact]
+    public void ExportTxt_TruncatesLongSensorList()
+    {
+        var txt = new SnapshotExporter().ExportTxt(MakeRichSnapshot());
+
+        Assert.Contains("Sensor0", txt);
+        Assert.Contains("其余 40 条", txt);
+        Assert.DoesNotContain("Sensor99", txt);
+    }
+
+    [Fact]
+    public void ExportTxt_ContainsBatteryAndOtherDevices()
+    {
+        var txt = new SnapshotExporter().ExportTxt(MakeRichSnapshot());
+
+        Assert.Contains("BAT-01", txt);
+        Assert.Contains("LiP", txt);
+        Assert.Contains("BOE", txt);
+        Assert.Contains("USB Device", txt);
+        Assert.Contains("PDF", txt);
+    }
+}
