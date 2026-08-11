@@ -10,6 +10,7 @@ public interface ISnapshotExporter
 {
     string ExportJson(Snapshot snapshot);
     string ExportTxt(Snapshot snapshot);
+    string ExportHtml(Snapshot snapshot);
 }
 
 /// <summary>默认快照导出器。</summary>
@@ -18,6 +19,8 @@ public sealed class SnapshotExporter : ISnapshotExporter
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     public string ExportJson(Snapshot snapshot) => JsonSerializer.Serialize(snapshot, JsonOptions);
+
+    public string ExportHtml(Snapshot snapshot) => HtmlReport.Build(snapshot);
 
     public string ExportTxt(Snapshot snapshot)
     {

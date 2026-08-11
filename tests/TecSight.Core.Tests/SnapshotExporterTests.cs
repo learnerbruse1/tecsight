@@ -6,7 +6,7 @@ namespace TecSight.Core.Tests;
 
 public class SnapshotExporterTests
 {
-    private static Snapshot MakeSnapshot() => new(
+    internal static Snapshot MakeSnapshot() => new(
         new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero),
         new HardwareInventory
         {
@@ -82,5 +82,20 @@ public class SnapshotExporterDetailsTests
         Assert.Contains("BOE", txt);
         Assert.Contains("USB Device", txt);
         Assert.Contains("PDF", txt);
+    }
+}
+public class SnapshotExporterHtmlTests
+{
+    [Fact]
+    public void ExportHtml_ProducesSelfContainedReportWithKeyValues()
+    {
+        var exporter = new SnapshotExporter();
+        var html = exporter.ExportHtml(SnapshotExporterTests.MakeSnapshot());
+
+        Assert.Contains("<!DOCTYPE html>", html);
+        Assert.Contains("FAKE-PC", html);
+        Assert.Contains("Fake CPU", html);
+        Assert.Contains("12.5", html);
+        Assert.Contains("</html>", html);
     }
 }

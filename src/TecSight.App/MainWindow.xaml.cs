@@ -191,6 +191,17 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ExportHtml_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new SaveFileDialog
+        {
+            FileName = $"tecsight-{DateTime.Now:yyyyMMdd-HHmmss}.html",
+            Filter = "HTML 文件 (*.html)|*.html",
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        File.WriteAllText(dlg.FileName, _vm.Exporter.ExportHtml(_vm.Snapshot));
+    }
+
     private void ExportJson_Click(object sender, RoutedEventArgs e) => Export("json");
 
     private void ExportTxt_Click(object sender, RoutedEventArgs e) => Export("txt");
