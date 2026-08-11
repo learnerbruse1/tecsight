@@ -142,7 +142,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Peripheral.hub", "USB 集线器", "USB Hubs");
         Both("Peripheral.input", "输入设备", "Input");
         Both("Peripheral.usb", "USB 设备", "USB Devices");
-        Both("Peripheral.other", "其他设备", "Other");
+                Both("Peripheral.other", "其他设备", "Other");
+        Both("Peripheral.None", "未检测到外设", "No peripherals detected");
         Both("Detail.Manufacturer", "制造商", "Manufacturer");
         Both("Detail.Capacity", "容量", "Capacity");
         Both("Detail.Speed", "频率", "Speed");

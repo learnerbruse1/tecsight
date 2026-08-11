@@ -79,6 +79,8 @@ public partial class PeripheralsPage : UserControl
                 g.Select(d => new PeripheralRow(d.Name ?? "?", DeviceDetail(d))).ToList()))
             .ToList();
         CountText.Text = $"{vm.Loc["Peripheral.Count"]} {devices.Count}  ·  {vm.Loc["Peripheral.UpdatedAt"]} {DateTime.Now:HH:mm:ss}";
+        EmptyText.Text = vm.Loc["Peripheral.None"];
+        EmptyText.Visibility = devices.Count == 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
     }
 
     private static string DeviceDetail(PeripheralDevice d)
