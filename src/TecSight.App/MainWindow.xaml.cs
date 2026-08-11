@@ -94,7 +94,11 @@ public partial class MainWindow : Window
                 Dispatcher.Invoke(() =>
                 {
                     _vm.SetSnapshot(snap);
-                    UpdateCurrentPage();
+                    // 最小化时跳过界面刷新（数据仍持续采集），恢复后下一秒自动更新
+                    if (WindowState != WindowState.Minimized)
+                    {
+                        UpdateCurrentPage();
+                    }
                 });
             }
         });
