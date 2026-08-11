@@ -122,7 +122,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
                         cpuPct = Math.Clamp(delta / dt / Environment.ProcessorCount * 100, 0, 100);
                     }
                     _prevProcessCpu[p.Id] = (name, p.TotalProcessorTime);
-                    list.Add(new ProcessUsage(name, cpuPct, mem));
+                    list.Add(new ProcessUsage(name, cpuPct, mem, p.Id));
                 }
                 catch
                 {

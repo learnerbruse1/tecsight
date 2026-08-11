@@ -1,7 +1,7 @@
 namespace TecSight.Core.Models;
 
 /// <summary>进程占用（F4）：CPU 百分比与内存占用。</summary>
-public sealed record ProcessUsage(string Name, double? CpuPercent, long? WorkingSetBytes);
+public sealed record ProcessUsage(string Name, double? CpuPercent, long? WorkingSetBytes, int? ProcessId = null);
 
 /// <summary>GPU 引擎占用（F6）：3D / Video / Copy / Compute 等各自利用率。</summary>
 public sealed record GpuEngineUsage(string EngineType, double Percent);
