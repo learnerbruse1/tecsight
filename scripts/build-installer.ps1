@@ -15,4 +15,6 @@ if (-not $iscc) { throw "未找到 ISCC.exe（Inno Setup 6），请先安装 Inn
 
 # 3) 编译安装程序
 & $iscc.FullName (Join-Path $root "installer\tecsight.iss")
-Write-Host "Setup: $(Join-Path $root 'installer\Output\TecSight-Setup-1.0.0.exe')"
+$iss = Get-Content (Join-Path $root "installer\tecsight.iss") -Raw
+$ver = [regex]::Match($iss, '#define MyAppVersion "([^"]+)"').Groups[1].Value
+Write-Host "Setup: $(Join-Path $root "installer\Output\TecSight-Setup-$ver.exe")"

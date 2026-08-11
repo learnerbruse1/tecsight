@@ -10,7 +10,7 @@
 - **运行指标**：CPU / 内存 / GPU / 磁盘 I/O / 网络吞吐 / 电量，1 秒实时刷新
 - **传感器与健康度**：温度、风扇转速、电压（LibreHardwareMonitor）；磁盘 SMART 健康度
 - **历史曲线**：最近 1 小时趋势（环形缓冲）
-- **导出报告**：一键导出 JSON / TXT 快照 / 复制摘要 / 兼容性自检报告
+- **导出报告**：一键导出 JSON / TXT / HTML 快照、复制摘要、兼容性自检报告
 - **外设识别**：热插拔设备自动分类显示（存储/键盘/鼠标/摄像头/音频/蓝牙/打印机/USB）
 - **中英双语 + 深浅主题**：界面可随时切换并记忆
 
@@ -37,7 +37,7 @@ dotnet publish src/TecSight.App -c Release -r win-x64 --self-contained true \
 
 发布产物：`publish/TecSight.App.exe`（自包含单文件，免安装）。也可直接运行 `scripts/publish.ps1`。
 
-**安装程序**（需 [Inno Setup 6](https://jrsoftware.org/isdl.php)）：`./scripts/build-installer.ps1` → 生成 `installer/Output/TecSight-Setup-1.0.0.exe`（中英双语向导、开始菜单/桌面快捷方式、卸载器，免管理员权限）。
+**安装程序**（需 [Inno Setup 6](https://jrsoftware.org/isdl.php)）：`./scripts/build-installer.ps1` → 生成 `installer/Output/TecSight-Setup-1.1.0.exe`（中英双语向导、开始菜单/桌面快捷方式、卸载器，免管理员权限）。
 
 ## 技术栈
 

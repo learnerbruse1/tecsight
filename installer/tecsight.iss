@@ -10,6 +10,7 @@ AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
+VersionInfoVersion={#MyAppVersion}.0
 AppPublisher={#MyAppPublisher}
 DefaultDirName={localappdata}\Programs\TecSight
 DisableProgramGroupPage=yes

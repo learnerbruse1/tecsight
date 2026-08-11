@@ -10,7 +10,7 @@
 - **Live metrics**: CPU / memory / GPU / disk I/O / network throughput / battery, refreshed every second
 - **Sensors & health**: temperatures, fan speeds, voltages (LibreHardwareMonitor); disk SMART health
 - **History charts**: last-hour trends (ring buffer)
-- **Export**: one-click JSON / TXT snapshot, copy summary, compatibility report
+- **Export**: one-click JSON / TXT / HTML snapshot, copy summary, compatibility report
 - **Peripherals**: hotplug devices auto-classified (storage/keyboard/mouse/camera/audio/Bluetooth/printer/USB)
 - **Bilingual UI + themes**: switchable and remembered
 
@@ -37,7 +37,7 @@ dotnet publish src/TecSight.App -c Release -r win-x64 --self-contained true \
 
 Output: `publish/TecSight.App.exe` (self-contained single file, no install needed). You can also run `scripts/publish.ps1`.
 
-**Installer** (requires [Inno Setup 6](https://jrsoftware.org/isdl.php)): `./scripts/build-installer.ps1` → produces `installer/Output/TecSight-Setup-1.0.0.exe` (bilingual wizard, Start Menu/desktop shortcuts, uninstaller, no admin needed).
+**Installer** (requires [Inno Setup 6](https://jrsoftware.org/isdl.php)): `./scripts/build-installer.ps1` → produces `installer/Output/TecSight-Setup-1.1.0.exe` (bilingual wizard, Start Menu/desktop shortcuts, uninstaller, no admin needed).
 
 ## Tech Stack
 
