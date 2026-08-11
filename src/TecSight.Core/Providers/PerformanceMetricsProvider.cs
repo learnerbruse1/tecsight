@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using TecSight.Core.Models;
 
@@ -29,6 +29,9 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     private DateTimeOffset _lastGpuRefresh = DateTimeOffset.MinValue;
     private readonly Dictionary<int, (string Name, TimeSpan Cpu)> _prevProcessCpu = new();
     private DateTimeOffset _prevProcessTime = DateTimeOffset.MinValue;
+    private (IReadOnlyList<ProcessUsage> Top, int Total)? _cachedProcesses;
+    private DateTimeOffset _lastProcessCapture = DateTimeOffset.MinValue;
+    private const double ProcessCaptureIntervalSeconds = 5.0; // 进程枚举较重（~180ms），5 秒一次足够（CPU% 按增量计算，窗口更长更稳）
 
     public PerformanceMetricsProvider()
     {
@@ -72,25 +75,35 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     /// <summary>GPU 占用：按引擎类型分组求和，取最繁忙的引擎类型（通常 3D），并返回各引擎明细。</summary>
     private (IReadOnlyList<GpuEngineUsage> Engines, double? Percent) ReadGpuUsage()
     {
-        try
+        lock (_gpuReadGate)
         {
-            RefreshGpuCountersIfStale();
-            if (_gpuEngines.Count == 0) return ([], null); // 无计数器 → 不可用，不造假
-            var sums = new Dictionary<string, double>();
-            foreach (var c in _gpuEngines)
+            if (_cachedGpu is { } cached && DateTimeOffset.UtcNow - _lastGpuRead < TimeSpan.FromSeconds(GpuReadIntervalSeconds))
             {
-                var v = c.NextValue();
-                if (v <= 0) continue;
-                var type = ExtractEngineType(c.InstanceName);
-                sums[type] = sums.GetValueOrDefault(type) + v;
+                return cached;
             }
-            var engines = sums.Select(kv => new GpuEngineUsage(kv.Key, Math.Clamp(kv.Value, 0, 100))).ToList();
-            var max = engines.Count == 0 ? 0 : engines.Max(e => e.Percent);
-            return (engines, Clamp01(max));
-        }
-        catch
-        {
-            return ([], null);
+            try
+            {
+                RefreshGpuCountersIfStale();
+                if (_gpuEngines.Count == 0) return ([], null); // 无计数器 → 不可用，不造假
+                var sums = new Dictionary<string, double>();
+                foreach (var c in _gpuEngines)
+                {
+                    var v = c.NextValue();
+                    if (v <= 0) continue;
+                    var type = ExtractEngineType(c.InstanceName);
+                    sums[type] = sums.GetValueOrDefault(type) + v;
+                }
+                var engines = sums.Select(kv => new GpuEngineUsage(kv.Key, Math.Clamp(kv.Value, 0, 100))).ToList();
+                var max = engines.Count == 0 ? 0 : engines.Max(e => e.Percent);
+                var result = (engines, Clamp01(max));
+                _cachedGpu = result;
+                _lastGpuRead = DateTimeOffset.UtcNow;
+                return result;
+            }
+            catch
+            {
+                return ([], null);
+            }
         }
     }
 
@@ -103,6 +116,10 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     /// <summary>进程占用排行：按 CPU 增量排序取前 20（首帧 CPU 为 null，内存始终可用）。</summary>
     private (IReadOnlyList<ProcessUsage> Top, int Total) CaptureProcesses()
     {
+        if (_cachedProcesses is { } cached && DateTimeOffset.UtcNow - _lastProcessCapture < TimeSpan.FromSeconds(ProcessCaptureIntervalSeconds))
+        {
+            return cached; // 节流：两次进程枚举之间返回上次结果
+        }
         try
         {
             var now = DateTimeOffset.UtcNow;
@@ -136,7 +153,10 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             _prevProcessTime = now;
             if (_prevProcessCpu.Count > 2000) _prevProcessCpu.Clear();
             var top = list.OrderByDescending(x => x.CpuPercent ?? -1).Take(20).ToList();
-            return (top, all.Length);
+            var result = (top, all.Length);
+            _cachedProcesses = result;
+            _lastProcessCapture = DateTimeOffset.UtcNow;
+            return result;
         }
         catch
         {
@@ -244,6 +264,12 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             // GPU Engine 计数器不可用时保持空列表
         }
     }
+
+    /// <summary>GPU 引擎计数器可能多达数百个（进程×引擎×GPU），2 秒读取一次即可，避免每秒数百次计数器开销。</summary>
+    private readonly object _gpuReadGate = new();
+    private (IReadOnlyList<GpuEngineUsage> Engines, double? Percent)? _cachedGpu;
+    private DateTimeOffset _lastGpuRead = DateTimeOffset.MinValue;
+    private const double GpuReadIntervalSeconds = 2.0;
 
     private static double? ReadCounter(PerformanceCounter? counter)
     {

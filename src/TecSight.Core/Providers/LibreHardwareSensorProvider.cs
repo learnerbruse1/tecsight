@@ -1,4 +1,4 @@
-using LibreHardwareMonitor.Hardware;
+﻿using LibreHardwareMonitor.Hardware;
 using LibreHardwareMonitor.Hardware.Storage;
 using TecSight.Core.Models;
 
@@ -31,6 +31,12 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
     private readonly object _gate = new();
     private bool _opened;
     private bool _openFailed;
+    private IReadOnlyList<SensorReading>? _cachedSensors;
+    private DateTimeOffset _lastSensorsUtc = DateTimeOffset.MinValue;
+    private IReadOnlyList<SmartAttributeReading>? _cachedSmart;
+    private DateTimeOffset _lastSmartUtc = DateTimeOffset.MinValue;
+    private const double SensorIntervalSeconds = 2.0; // 温度/风扇变化慢，2 秒更新一次足够
+    private const double SmartIntervalSeconds = 5.0;  // SMART 属性基本不变，5 秒足够
 
     /// <summary>构造时不扫描硬件；Open()（可能较慢）延迟到首次采集，运行在后台线程，避免阻塞 UI 启动。</summary>
     public LibreHardwareSensorProvider() { }
@@ -57,38 +63,56 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
     {
         EnsureOpened();
         if (!_opened) return [];
-        var result = new List<SensorReading>();
-        try
+        lock (_gate)
         {
-            foreach (var hardware in _computer.Hardware)
+            if (_cachedSensors is not null && DateTimeOffset.UtcNow - _lastSensorsUtc < TimeSpan.FromSeconds(SensorIntervalSeconds))
             {
-                Visit(hardware, result);
+                return _cachedSensors;
             }
+            var result = new List<SensorReading>();
+            try
+            {
+                foreach (var hardware in _computer.Hardware)
+                {
+                    Visit(hardware, result);
+                }
+            }
+            catch
+            {
+                // 采集过程中异常时返回已收集部分（降级）
+            }
+            _cachedSensors = result;
+            _lastSensorsUtc = DateTimeOffset.UtcNow;
+            return result;
         }
-        catch
-        {
-            // 采集过程中异常时返回已收集部分（降级）
-        }
-        return result;
     }
 
     public IReadOnlyList<SmartAttributeReading> CaptureSmart()
     {
         EnsureOpened();
         if (!_opened) return [];
-        var result = new List<SmartAttributeReading>();
-        try
+        lock (_gate)
         {
-            foreach (var hardware in _computer.Hardware)
+            if (_cachedSmart is not null && DateTimeOffset.UtcNow - _lastSmartUtc < TimeSpan.FromSeconds(SmartIntervalSeconds))
             {
-                VisitSmart(hardware, result);
+                return _cachedSmart;
             }
+            var result = new List<SmartAttributeReading>();
+            try
+            {
+                foreach (var hardware in _computer.Hardware)
+                {
+                    VisitSmart(hardware, result);
+                }
+            }
+            catch
+            {
+                // 返回已收集部分（降级）
+            }
+            _cachedSmart = result;
+            _lastSmartUtc = DateTimeOffset.UtcNow;
+            return result;
         }
-        catch
-        {
-            // 返回已收集部分（降级）
-        }
-        return result;
     }
 
     private static void Visit(IHardware hardware, List<SensorReading> result)
