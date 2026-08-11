@@ -101,8 +101,6 @@ public static class PeripheralProbe
             case "MEDIA":
             case "AudioEndpoint":
                 return "audio";
-            case "Net":
-                return n.Contains("Bluetooth", StringComparison.OrdinalIgnoreCase) ? "bluetooth" : "network";
             case "Bluetooth": return "bluetooth";
             case "USB":
             case "USBDevice":

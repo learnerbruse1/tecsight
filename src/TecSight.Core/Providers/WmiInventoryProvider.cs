@@ -251,17 +251,12 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
             row => new UsbDeviceInfo(GetString(row, "Name"), GetString(row, "Manufacturer"), GetString(row, "Status"), GetString(row, "PNPDeviceID")));
     }
 
-    private static List<PnPDeviceInfo> QueryKeyboards()
-    {
-        return SafeQuery("SELECT Name, Description, Status FROM Win32_Keyboard",
-            row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description"), GetString(row, "Status")));
-    }
+    private static List<PnPDeviceInfo> QueryKeyboards() => QueryPnP("SELECT Name, Description, Status FROM Win32_Keyboard");
 
-    private static List<PnPDeviceInfo> QueryPointing()
-    {
-        return SafeQuery("SELECT Name, Description, Status FROM Win32_PointingDevice",
-            row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description"), GetString(row, "Status")));
-    }
+    private static List<PnPDeviceInfo> QueryPointing() => QueryPnP("SELECT Name, Description, Status FROM Win32_PointingDevice");
+
+    private static List<PnPDeviceInfo> QueryPnP(string wql)
+        => SafeQuery(wql, row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description"), GetString(row, "Status")));
 
     private static List<PrinterInfo> QueryPrinters()
     {
