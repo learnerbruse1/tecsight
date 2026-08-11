@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace TecSight.App;
 
@@ -22,6 +22,8 @@ public static class Format
         var zh = lang == "zh";
         if (t.TotalDays >= 1) return zh ? $"{t.Days} 天 {t.Hours} 小时" : $"{t.Days}d {t.Hours}h";
         if (t.TotalHours >= 1) return zh ? $"{t.Hours} 小时 {t.Minutes} 分" : $"{t.Hours}h {t.Minutes}m";
-        return zh ? $"{Math.Max(1, t.Minutes)} 分" : $"{Math.Max(1, t.Minutes)}m";
+        if (t.TotalMinutes >= 1) return zh ? $"{Math.Max(1, t.Minutes)} 分" : $"{Math.Max(1, t.Minutes)}m";
+        // 不足 1 分钟：按秒显示，避免把 30 秒显示成"1 分"
+        return zh ? $"{Math.Max(1, (int)t.TotalSeconds)} 秒" : $"{Math.Max(1, (int)t.TotalSeconds)}s";
     }
 }
