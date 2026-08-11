@@ -20,7 +20,7 @@
                             <StackPanel>
                                 <TextBlock Text="{Binding Label}" Foreground="{DynamicResource SubTextBrush}" FontSize="12"/>
                                 <TextBlock Text="{Binding Value}" FontSize="22" FontWeight="SemiBold" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource SubTextBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" MaxHeight="34"/>
+                                <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource SubTextBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
                     </DataTemplate>

@@ -19,10 +19,11 @@ public static class PeripheralProbe
     }
 
     /// <summary>只枚举外设相关类别，排除系统内部设备（System/Firmware/网络虚拟端口等）。</summary>
+    // 内置硬盘（DiskDrive）不属于"外设"，由磁盘页展示；USB 移动存储由 ScanUsbDisks/ScanRemovableDisks 单独加入。
     private static readonly HashSet<string> PeripheralClasses =
     [
         "USB", "USBDevice", "USBHub", "HIDClass", "Keyboard", "Mouse", "Camera",
-        "MEDIA", "AudioEndpoint", "Monitor", "Bluetooth", "PrintQueue", "Image", "DiskDrive",
+        "MEDIA", "AudioEndpoint", "Monitor", "Bluetooth", "PrintQueue", "Image",
     ];
 
     private static void ScanPnP(List<PeripheralDevice> list)
@@ -134,7 +135,6 @@ public static class PeripheralProbe
             case "Net":
                 return n.Contains("Bluetooth", StringComparison.OrdinalIgnoreCase) ? "bluetooth" : "network";
             case "Bluetooth": return "bluetooth";
-            case "DiskDrive": return "storage";
             case "USB":
             case "USBDevice":
                 if (n.Contains("Hub", StringComparison.OrdinalIgnoreCase) || n.Contains("集线器")) return "hub";
