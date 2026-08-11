@@ -93,15 +93,22 @@ public partial class MainWindow : Window
             if (snapshot is not null && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
             {
                 var snap = snapshot;
-                Dispatcher.Invoke(() =>
+                try
                 {
-                    _vm.SetSnapshot(snap);
-                    // 最小化时跳过界面刷新（数据仍持续采集），恢复后下一秒自动更新
-                    if (WindowState != WindowState.Minimized)
+                    Dispatcher.Invoke(() =>
                     {
-                        UpdateCurrentPage();
-                    }
-                });
+                        _vm.SetSnapshot(snap);
+                        // 最小化时跳过界面刷新（数据仍持续采集），恢复后下一秒自动更新
+                        if (WindowState != WindowState.Minimized)
+                        {
+                            UpdateCurrentPage();
+                        }
+                    });
+                }
+                catch
+                {
+                    // 窗口在检查与投递之间关闭等竞态：忽略
+                }
             }
         });
     }

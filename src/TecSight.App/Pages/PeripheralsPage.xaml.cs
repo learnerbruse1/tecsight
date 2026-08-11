@@ -56,7 +56,14 @@ public partial class PeripheralsPage : UserControl
             if (devices is not null && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
             {
                 var items = devices;
-                Dispatcher.Invoke(() => Show(_vm!, items));
+                try
+                {
+                    Dispatcher.Invoke(() => Show(_vm!, items));
+                }
+                catch
+                {
+                    // 窗口在检查与投递之间关闭等竞态：忽略
+                }
             }
         });
     }
