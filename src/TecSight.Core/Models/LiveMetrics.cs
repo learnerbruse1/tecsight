@@ -20,5 +20,6 @@ public sealed record LiveMetrics
     public IReadOnlyList<SensorReading> Sensors { get; init; } = [];
     public IReadOnlyList<SmartAttributeReading> SmartAttributes { get; init; } = [];
     public IReadOnlyList<ProcessUsage> Processes { get; init; } = [];
+    public int TotalProcessCount { get; init; }
     public IReadOnlyList<GpuEngineUsage> GpuEngines { get; init; } = [];
 }

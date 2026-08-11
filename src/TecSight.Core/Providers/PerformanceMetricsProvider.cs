@@ -46,6 +46,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         var (total, used) = MemoryBytes();
         var (batteryPercent, batteryCharging) = BatteryStatus();
         var (engines, gpuPercent) = ReadGpuUsage();
+        var processes = CaptureProcesses();
         return new LiveMetrics
         {
             Timestamp = ts,
@@ -62,7 +63,8 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             BatteryChargePercent = batteryPercent,
             BatteryIsCharging = batteryCharging,
             SystemUptimeSeconds = ReadUptimeSeconds(),
-            Processes = CaptureProcesses(),
+            Processes = processes.Top,
+            TotalProcessCount = processes.Total,
             GpuEngines = engines,
         };
     }
@@ -99,14 +101,15 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     }
 
     /// <summary>进程占用排行：按 CPU 增量排序取前 20（首帧 CPU 为 null，内存始终可用）。</summary>
-    private IReadOnlyList<ProcessUsage> CaptureProcesses()
+    private (IReadOnlyList<ProcessUsage> Top, int Total) CaptureProcesses()
     {
         try
         {
             var now = DateTimeOffset.UtcNow;
             var dt = (now - _prevProcessTime).TotalSeconds;
-            var list = new List<ProcessUsage>();
-            foreach (var p in Process.GetProcesses())
+            var all = Process.GetProcesses();
+            var list = new List<ProcessUsage>(all.Length);
+            foreach (var p in all)
             {
                 try
                 {
@@ -132,11 +135,12 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             }
             _prevProcessTime = now;
             if (_prevProcessCpu.Count > 2000) _prevProcessCpu.Clear();
-            return list.OrderByDescending(x => x.CpuPercent ?? -1).Take(20).ToList();
+            var top = list.OrderByDescending(x => x.CpuPercent ?? -1).Take(20).ToList();
+            return (top, all.Length);
         }
         catch
         {
-            return [];
+            return ([], 0);
         }
     }
 

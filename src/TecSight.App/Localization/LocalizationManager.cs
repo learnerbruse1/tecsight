@@ -184,7 +184,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
 
         Both("Process.Name", "进程", "Process");
         Both("Process.Cpu", "CPU 占用", "CPU");
-        Both("Process.Memory", "内存占用", "Memory");
+                Both("Process.Memory", "内存占用", "Memory");
+        Both("Process.Total", "进程总数", "Total processes");
     }
 
     public string CurrentLanguage
