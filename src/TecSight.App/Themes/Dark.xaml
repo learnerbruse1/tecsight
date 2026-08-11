@@ -112,4 +112,42 @@
             </Trigger>
         </Style.Triggers>
     </Style>
+    <!-- 主题化按钮：圆角、悬停/按下/禁用/聚焦状态随主题 -->
+    <SolidColorBrush x:Key="BtnBgBrush" Color="#3A3A42"/>
+    <SolidColorBrush x:Key="BtnFgBrush" Color="#E8E8E8"/>
+    <SolidColorBrush x:Key="BtnBorderBrush" Color="#4A4A52"/>
+    <SolidColorBrush x:Key="BtnHoverBrush" Color="#45454F"/>
+    <SolidColorBrush x:Key="BtnPressedBrush" Color="#2F2F36"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#4C9AFF"/>
+    <Style TargetType="Button">
+        <Setter Property="Background" Value="{DynamicResource BtnBgBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BtnFgBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BtnBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="10,4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource BtnHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource BtnPressedBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 </ResourceDictionary>
