@@ -6,6 +6,7 @@
             <TextBlock Text="{Binding Snapshot.Inventory.ComputerName}" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
             <TextBlock Text="{Binding Snapshot.Inventory.OsCaption}" Margin="14,6,0,0" Foreground="{DynamicResource SubTextBrush}" VerticalAlignment="Center"/>
             <TextBlock Text="{Binding Loc[Overview.Refreshing]}" Margin="14,6,0,0" Foreground="{DynamicResource SubTextBrush}" VerticalAlignment="Center"/>
+            <TextBlock x:Name="WarnText" Margin="14,6,0,0" Foreground="OrangeRed" FontWeight="SemiBold" VerticalAlignment="Center" Visibility="Collapsed"/>
         </StackPanel>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <ItemsControl x:Name="Cards" Margin="0,14,0,0">

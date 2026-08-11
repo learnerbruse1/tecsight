@@ -53,7 +53,7 @@ public static class HtmlReport
         Row(sb, "内存", $"{Pct(m.MemoryUsagePercent)}（{Gb(m.MemoryUsedBytes)} / {Gb(m.MemoryTotalBytes)}）");
         Row(sb, "磁盘 I/O", $"读 {Bps(m.DiskReadBytesPerSec)} / 写 {Bps(m.DiskWriteBytesPerSec)}");
         Row(sb, "网络", $"↓ {Bps(m.NetworkDownloadBps)} ↑ {Bps(m.NetworkUploadBps)}");
-        Row(sb, "GPU", $"{Pct(m.GpuUsagePercent)}（{string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {e.Percent:0}%"))}）");
+        Row(sb, "GPU", $"{Pct(m.GpuUsagePercent)}（{string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {e.Percent.ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%"))}）");
         Row(sb, "电池", $"{Pct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "充电中" : "")}");
         Row(sb, "进程", $"{m.Processes.Count} 个（共 {m.TotalProcessCount}）");
         sb.AppendLine("</table>");

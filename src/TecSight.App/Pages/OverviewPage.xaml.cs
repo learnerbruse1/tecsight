@@ -46,6 +46,11 @@ public partial class OverviewPage : UserControl
             .ToList();
         double? fanRpm = fanVals.Count > 0 ? fanVals.Max() : null;
 
+        // 核心指标全部缺失 → 提示采集异常（性能计数器不可用等）
+        var allMissing = !m.CpuUsagePercent.HasValue && !m.MemoryUsagePercent.HasValue && !m.GpuUsagePercent.HasValue;
+        WarnText.Text = loc["Overview.CollectFailed"];
+        WarnText.Visibility = allMissing ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
         Cards.ItemsSource = new List<OverviewCard>
         {
             new(loc["Overview.Cpu"], Format.Pct(m.CpuUsagePercent), cpuSub),
