@@ -206,11 +206,26 @@ public partial class MainWindow : Window
         try
         {
             Clipboard.SetText(_vm.Exporter.ExportTxt(_vm.Snapshot));
+            ShowTransientStatus(_vm.Loc["Common.Copied"]);
         }
         catch
         {
             // 剪贴板被占用等异常时忽略
         }
+    }
+
+    /// <summary>在标题栏短暂显示状态提示后恢复。</summary>
+    private void ShowTransientStatus(string message)
+    {
+        var original = Title;
+        Title = message;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+        timer.Tick += (s, _) =>
+        {
+            Title = original;
+            ((DispatcherTimer)s).Stop();
+        };
+        timer.Start();
     }
 
     private void ExportHtml_Click(object sender, RoutedEventArgs e)
