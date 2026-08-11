@@ -286,7 +286,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     }
 
     /// <summary>
-    /// 电池容量：设计容量/满充容量来自 root\wmi（mWh），循环次数来自 BatteryCycleCount。
+    /// 电池：容量/化学类型/电压均来自 WMI（mWh → Wh，mV → V）。
     /// </summary>
     private static BatteryInfo? QueryBattery()
     {
@@ -295,10 +295,28 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         double? designed = SafeQuery("root\\wmi", "SELECT DesignedCapacity FROM BatteryStaticData", row => ToWh(GetDouble(row, "DesignedCapacity"))).FirstOrDefault();
         double? full = SafeQuery("root\\wmi", "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity", row => ToWh(GetDouble(row, "FullChargedCapacity"))).FirstOrDefault();
         int? cycles = SafeQuery("root\\wmi", "SELECT CycleCount FROM BatteryCycleCount", row => GetInt(row, "CycleCount")).FirstOrDefault();
-        return new BatteryInfo(name, designed, full, cycles);
+        string? chemistry = SafeQuery("root\\wmi", "SELECT Chemistry FROM BatteryStaticData", row => DecodeChemistry(GetDouble(row, "Chemistry"))).FirstOrDefault();
+        double? designVoltage = SafeQuery("SELECT DesignVoltage FROM Win32_Battery", row => ToVolt(GetDouble(row, "DesignVoltage"))).FirstOrDefault();
+        double? currentVoltage = SafeQuery("root\\wmi", "SELECT Voltage FROM BatteryStatus", row => ToVolt(GetDouble(row, "Voltage"))).FirstOrDefault();
+        return new BatteryInfo(name, designed, full, cycles, chemistry, designVoltage, currentVoltage);
     }
 
     private static double? ToWh(double? mWh) => mWh is double v && v > 0 ? v / 1000.0 : null;
+    private static double? ToVolt(double? mV) => mV is double v && v > 0 ? v / 1000.0 : null;
+
+    /// <summary>BatteryStaticData.Chemistry 是 4 字节 ASCII 编码（如 0x50694C = "LiP"）。</summary>
+    private static string? DecodeChemistry(double? v)
+    {
+        if (v is not double d || d <= 0) return null;
+        var bytes = BitConverter.GetBytes((uint)d);
+        var chars = new List<char>();
+        foreach (var b in bytes)
+        {
+            if (b >= 32 && b < 127) chars.Add((char)b);
+            else break;
+        }
+        return chars.Count >= 2 ? new string(chars.ToArray()) : null;
+    }
 
     // ---- helpers ----
     private static List<T> SafeQuery<T>(string query, Func<ManagementBaseObject, T> map)

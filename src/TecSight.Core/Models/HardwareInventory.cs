@@ -52,7 +52,7 @@ public sealed record MotherboardInfo(
 public sealed record NetworkAdapterInfo(string? Name, string? MacAddress, bool? IsPhysical, long? SpeedBps = null, string? AdapterType = null);
 
 /// <summary>电池静态信息（含循环次数）。</summary>
-public sealed record BatteryInfo(string? DeviceName, double? DesignedCapacityWh, double? FullChargeCapacityWh, int? CycleCount = null);
+public sealed record BatteryInfo(string? DeviceName, double? DesignedCapacityWh, double? FullChargeCapacityWh, int? CycleCount = null, string? Chemistry = null, double? DesignVoltageV = null, double? CurrentVoltageV = null);
 
 /// <summary>硬件清单（Hardware Inventory）：静态存在的硬件及其静态属性。</summary>
 public sealed class HardwareInventory

@@ -26,6 +26,14 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        // 应用持久化设置（主题/语言）
+        AppSettings.Load();
+        if (AppSettings.DarkTheme) ThemeManager.SetDark(true);
+        if (!string.IsNullOrEmpty(AppSettings.Language))
+        {
+            Localization.LocalizationManager.Instance.CurrentLanguage = AppSettings.Language;
+        }
+
         InitializeComponent();
 
         var collector = new HistoryCollector(
@@ -131,12 +139,14 @@ public partial class MainWindow : Window
         _vm.Loc.CurrentLanguage = _vm.Loc.CurrentLanguage == "zh" ? "en" : "zh";
         Title = _vm.Loc["App.Title"];
         UpdateCurrentPage();
+        AppSettings.Save();
     }
 
     private void ThemeButton_Click(object sender, RoutedEventArgs e)
     {
         ThemeManager.Toggle();
         ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
+        AppSettings.Save();
     }
 
     /// <summary>以管理员权限重启，以便读取需要内核驱动的传感器（CPU 温度/风扇等）。</summary>

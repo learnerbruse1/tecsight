@@ -7,14 +7,17 @@ public static class ThemeManager
 {
     public static bool IsDark { get; private set; }
 
-    public static void Toggle()
+    public static void SetDark(bool dark)
     {
+        if (IsDark == dark) return;
         var dicts = Application.Current.Resources.MergedDictionaries;
         dicts.Clear();
-        IsDark = !IsDark;
+        IsDark = dark;
         dicts.Add(new ResourceDictionary
         {
             Source = new Uri(IsDark ? "Themes/Dark.xaml" : "Themes/Light.xaml", UriKind.Relative),
         });
     }
+
+    public static void Toggle() => SetDark(!IsDark);
 }

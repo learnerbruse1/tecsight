@@ -89,7 +89,15 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.Firmware", "固件版本", "Firmware");
         Both("Detail.NetSpeed", "速率", "Speed");
         Both("Detail.NetType", "类型", "Type");
-        Both("Detail.CycleCount", "循环次数", "Cycle Count");
+                Both("Detail.CycleCount", "循环次数", "Cycle Count");
+        Both("Detail.Chemistry", "化学类型", "Chemistry");
+        Both("Detail.DesignVoltage", "设计电压", "Design Voltage");
+        Both("Detail.CurrentVoltage", "当前电压", "Current Voltage");
+        Both("Detail.Chem.LiP", "锂聚合物", "Li-Polymer");
+        Both("Detail.Chem.LiI", "锂离子", "Li-Ion");
+        Both("Detail.Chem.NiMH", "镍氢", "NiMH");
+        Both("Detail.Chem.NiCd", "镍镉", "NiCd");
+        Both("Detail.Chem.PbAc", "铅酸", "Lead-Acid");
         Both("Detail.SystemManufacturer", "系统制造商", "System Manufacturer");
         Both("Detail.SystemModel", "系统型号", "System Model");
         Both("Detail.BiosDate", "BIOS 日期", "BIOS Date");

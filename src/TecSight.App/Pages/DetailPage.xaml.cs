@@ -258,6 +258,9 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.DesignCapacity"], b.DesignedCapacityWh.HasValue ? $"{b.DesignedCapacityWh.Value:0.0} Wh" : loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.FullChargeCapacity"], b.FullChargeCapacityWh.HasValue ? $"{b.FullChargeCapacityWh.Value:0.0} Wh" : loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.CycleCount"], b.CycleCount.HasValue ? b.CycleCount.Value.ToString() : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.Chemistry"], ChemistryText(b.Chemistry, loc)));
+                    rows.Add(new StaticRow(loc["Detail.DesignVoltage"], b.DesignVoltageV.HasValue ? $"{b.DesignVoltageV.Value:0.00} V" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.CurrentVoltage"], b.CurrentVoltageV.HasValue ? $"{b.CurrentVoltageV.Value:0.00} V" : loc["Common.NotAvailable"]));
                     if (b.FullChargeCapacityWh is double full && b.DesignedCapacityWh is double design && design > 0)
                     {
                         var health = Math.Min(100, full / design * 100);
@@ -412,6 +415,14 @@ public partial class DetailPage : UserControl
         var used = GpuSensorValue(vm, "GPU Memory Used");
         var total = GpuSensorValue(vm, "GPU Memory Total");
         return used.HasValue && total is > 0 ? $"{used.Value / total.Value * 100:0.0}%" : "—";
+    }
+
+    private static string ChemistryText(string? code, LocalizationManager loc)
+    {
+        if (string.IsNullOrEmpty(code)) return loc["Common.NotAvailable"];
+        var key = "Detail.Chem." + code.Trim();
+        var name = loc[key];
+        return name == key ? code : $"{code} ({name})";
     }
 
     private static string HealthText(StorageHealth? h, LocalizationManager loc) => h?.Status switch
