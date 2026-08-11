@@ -1,0 +1,60 @@
+﻿using TecSight.Core.Models;
+
+namespace TecSight.Core.Tests;
+
+public class HardwareClassifierTests
+{
+    [Fact]
+    public void PickPrimaryGpu_ExcludesVirtualAndPicksLargest()
+    {
+        var gpus = new List<GpuInfo>
+        {
+            new("OrayIddDriver Device", 0, "1.0"),
+            new("Microsoft Basic Display Adapter", 0, "1.0"),
+            new("NVIDIA GeForce RTX 3060", 8L * 1024 * 1024 * 1024, "32.0"),
+            new("Intel(R) UHD Graphics", 1L * 1024 * 1024 * 1024, "31.0"),
+        };
+
+        var primary = HardwareClassifier.PickPrimaryGpu(gpus);
+
+        Assert.NotNull(primary);
+        Assert.Equal("NVIDIA GeForce RTX 3060", primary!.Name);
+    }
+
+    [Fact]
+    public void PickPrimaryGpu_EmptyOrNull_ReturnsNull()
+    {
+        Assert.Null(HardwareClassifier.PickPrimaryGpu([]));
+    }
+
+    [Theory]
+    [InlineData("Intel Core i7", true)]
+    [InlineData("AMD Ryzen 7", true)]
+    [InlineData("CPU Package", true)]
+    [InlineData("NVIDIA GeForce RTX 4050", false)]
+    [InlineData("", false)]
+    public void MatchesCpuHw_DetectsCpuHardware(string name, bool expected)
+    {
+        Assert.Equal(expected, HardwareClassifier.MatchesCpuHw(name));
+    }
+
+    [Theory]
+    [InlineData("NVIDIA GeForce RTX 4050 Laptop GPU", true)]
+    [InlineData("Intel(R) UHD Graphics", true)]
+    [InlineData("AMD Radeon", true)]
+    [InlineData("13th Gen Intel Core i7", false)]
+    [InlineData("", false)]
+    public void MatchesGpuHw_DetectsGpuHardware(string name, bool expected)
+    {
+        Assert.Equal(expected, HardwareClassifier.MatchesGpuHw(name));
+    }
+
+    [Fact]
+    public void PickPrimaryGpu_WhenAllVirtual_ReturnsNull()
+    {
+        // 只有虚拟显卡（如远程桌面）时返回 null → 界面如实显示 N/A
+        var gpus = new List<GpuInfo> { new("OrayIddDriver Device", 0, "1.0") };
+
+        Assert.Null(HardwareClassifier.PickPrimaryGpu(gpus));
+    }
+}
