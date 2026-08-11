@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using TecSight.Core.Models;
@@ -51,9 +52,9 @@ public sealed class SnapshotExporter : ISnapshotExporter
         if (inv.Battery is { } bat)
         {
             var health = bat.FullChargeCapacityWh is double full && bat.DesignedCapacityWh is double design && design > 0
-                ? $"{Math.Min(100, full / design * 100):0.0}%"
+                ? $"{(Math.Min(100, full / design * 100)).ToString("0.0", CultureInfo.InvariantCulture)}%"
                 : "不可用 N/A";
-            sb.AppendLine($"  电池 Battery: {bat.DeviceName ?? "不可用 N/A"}  设计 {bat.DesignedCapacityWh?.ToString("0.0") ?? "N/A"}Wh  满充 {bat.FullChargeCapacityWh?.ToString("0.0") ?? "N/A"}Wh  循环 {bat.CycleCount?.ToString() ?? "N/A"}  化学 {bat.Chemistry ?? "N/A"}  设计电压 {bat.DesignVoltageV?.ToString("0.00") ?? "N/A"}V  当前电压 {bat.CurrentVoltageV?.ToString("0.00") ?? "N/A"}V  健康度 {health}");
+            sb.AppendLine($"  电池 Battery: {bat.DeviceName ?? "不可用 N/A"}  设计 {bat.DesignedCapacityWh?.ToString("0.0", CultureInfo.InvariantCulture) ?? "N/A"}Wh  满充 {bat.FullChargeCapacityWh?.ToString("0.0", CultureInfo.InvariantCulture) ?? "N/A"}Wh  循环 {bat.CycleCount?.ToString() ?? "N/A"}  化学 {bat.Chemistry ?? "N/A"}  设计电压 {bat.DesignVoltageV?.ToString("0.00", CultureInfo.InvariantCulture) ?? "N/A"}V  当前电压 {bat.CurrentVoltageV?.ToString("0.00", CultureInfo.InvariantCulture) ?? "N/A"}V  健康度 {health}");
         }
         sb.AppendLine();
         sb.AppendLine("[其他设备 Other Devices]");
@@ -65,7 +66,7 @@ public sealed class SnapshotExporter : ISnapshotExporter
         sb.AppendLine("[运行指标 Live Metrics]");
         sb.AppendLine($"  CPU 占用 Usage: {FormatPct(m.CpuUsagePercent)}  频率 Freq: {FormatMhz(m.CpuFrequencyMhz)}  运行时长 Uptime: {FormatUptime(m.SystemUptimeSeconds)}");
         sb.AppendLine($"  内存 Memory: {FormatPct(m.MemoryUsagePercent)} ({FormatBytes(m.MemoryUsedBytes)} / {FormatBytes(m.MemoryTotalBytes)})");
-        sb.AppendLine($"  GPU 占用 Usage: {FormatPct(m.GpuUsagePercent)}  引擎 Engines: {string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {e.Percent:0.0}%"))}");
+        sb.AppendLine($"  GPU 占用 Usage: {FormatPct(m.GpuUsagePercent)}  引擎 Engines: {string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {e.Percent.ToString("0.0", CultureInfo.InvariantCulture)}%"))}");
         sb.AppendLine($"  磁盘 Disk: ↓读 {FormatBps(m.DiskReadBytesPerSec)} ↑写 {FormatBps(m.DiskWriteBytesPerSec)}");
         sb.AppendLine($"  网络 Network: ↓{FormatBps(m.NetworkDownloadBps)} ↑{FormatBps(m.NetworkUploadBps)}");
         sb.AppendLine($"  电池 Battery: {FormatPct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "充电 Charging" : "")}");
@@ -75,7 +76,7 @@ public sealed class SnapshotExporter : ISnapshotExporter
         sb.AppendLine("[传感器读数 Sensor Readings]");
         foreach (var s in m.Sensors.Take(60))
         {
-            sb.AppendLine($"  {s.HardwareName} / {s.SensorName}: {s.Value?.ToString("0.#") ?? "不可用 N/A"} {s.Unit}");
+            sb.AppendLine($"  {s.HardwareName} / {s.SensorName}: {s.Value?.ToString("0.#", CultureInfo.InvariantCulture) ?? "不可用 N/A"} {s.Unit}");
         }
         if (m.Sensors.Count > 60)
         {
@@ -97,15 +98,15 @@ public sealed class SnapshotExporter : ISnapshotExporter
         _ => "不可用 N/A",
     };
 
-    private static string FormatPct(double? v) => v.HasValue ? $"{v.Value:0.0}%" : "不可用 N/A";
-    private static string FormatMhz(double? v) => v.HasValue ? $"{v.Value:0} MHz" : "不可用 N/A";
-    private static string FormatBytes(double? b) => b.HasValue ? $"{b.Value / (1024.0 * 1024.0 * 1024.0):0.00} GB" : "不可用 N/A";
-    private static string FormatBps(double? b) => b.HasValue ? $"{b.Value / (1024.0 * 1024.0):0.00} MB/s" : "不可用 N/A";
+    private static string FormatPct(double? v) => v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "不可用 N/A";
+    private static string FormatMhz(double? v) => v.HasValue ? v.Value.ToString("0", CultureInfo.InvariantCulture) + " MHz" : "不可用 N/A";
+    private static string FormatBytes(double? b) => b.HasValue ? (b.Value / (1024.0 * 1024.0 * 1024.0)).ToString("0.00", CultureInfo.InvariantCulture) + " GB" : "不可用 N/A";
+    private static string FormatBps(double? b) => b.HasValue ? (b.Value / (1024.0 * 1024.0)).ToString("0.00", CultureInfo.InvariantCulture) + " MB/s" : "不可用 N/A";
     private static string FormatUptime(double? sec) => sec is double s && s >= 0 ? TimeSpan.FromSeconds(s).ToString(@"d\.hh\:mm") : "不可用 N/A";
     private static string LinkSpeed(long? bps) => bps switch
     {
-        >= 1_000_000_000 => $"{bps.Value / 1_000_000_000.0:0.0} Gbps",
-        >= 1_000_000 => $"{bps.Value / 1_000_000.0:0} Mbps",
+        >= 1_000_000_000 => (bps.Value / 1_000_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + " Gbps",
+        >= 1_000_000 => (bps.Value / 1_000_000.0).ToString("0", CultureInfo.InvariantCulture) + " Mbps",
         _ => "",
     };
 }
