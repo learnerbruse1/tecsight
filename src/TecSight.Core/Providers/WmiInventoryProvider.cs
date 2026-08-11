@@ -181,7 +181,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
             row => new
             {
                 Info = new NetworkAdapterInfo(GetString(row, "Name"), GetString(row, "MACAddress"), GetBool(row, "PhysicalAdapter"),
-                    GetLong(row, "Speed"), GetString(row, "AdapterType")),
+                    NormalizeLinkSpeed(GetLong(row, "Speed")), GetString(row, "AdapterType")),
                 Status = GetInt(row, "NetConnectionStatus"),
                 Physical = GetBool(row, "PhysicalAdapter"),
             });
@@ -191,6 +191,10 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
             .Distinct()
             .ToList();
     }
+
+    /// <summary>归一化链路速率：WMI 对"速率未知"返回哨兵值（如 long.MaxValue），<=0 或 >=1Tbps 的异常值也按未知处理。</summary>
+    private static long? NormalizeLinkSpeed(long? raw) =>
+        raw is long sp && sp > 0 && sp < 1_000_000_000_000 ? sp : null;
 
     private static List<NetworkConfigInfo> QueryNetworkConfig()
     {

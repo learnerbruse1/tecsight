@@ -30,6 +30,8 @@ public static class FormatUtil
 
     public static string LinkSpeed(long? bps, string nullText) => bps switch
     {
+        // WMI 对"速率未知"可能返回哨兵值（如 long.MaxValue），以及 >1Tbps 的异常值，一律按不可用处理
+        >= 1_000_000_000_000 => nullText,
         >= 1_000_000_000 => (bps.Value / 1_000_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + " Gbps",
         >= 1_000_000 => (bps.Value / 1_000_000.0).ToString("0", CultureInfo.InvariantCulture) + " Mbps",
         >= 1000 => (bps.Value / 1000.0).ToString("0", CultureInfo.InvariantCulture) + " Kbps",

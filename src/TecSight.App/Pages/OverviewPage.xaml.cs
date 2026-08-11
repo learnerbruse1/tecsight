@@ -20,7 +20,7 @@ public partial class OverviewPage : UserControl
         var cpu = inv.Cpus.FirstOrDefault();
         var gpu = HardwareClassifier.PickPrimaryGpu(inv.Gpus);
         var disk = inv.Disks.FirstOrDefault();
-        var net = inv.NetworkAdapters.FirstOrDefault(n => n.IsPhysical == true) ?? inv.NetworkAdapters.FirstOrDefault();
+        var net = PickPrimaryNetwork(inv.NetworkAdapters);
         var netSub = net?.Name ?? loc["Common.NotAvailable"];
         if (net?.SpeedBps is long sp && sp > 0)
         {
@@ -81,6 +81,33 @@ public partial class OverviewPage : UserControl
             new(loc["Overview.System"], inv.OsCaption ?? loc["Common.NotAvailable"], inv.OsVersion ?? loc["Common.NotAvailable"]),
         };
     }
+
+
+    /// <summary>挑选概览页主网卡：优先真实有线/无线网卡，排除 TAP/隧道/虚拟等。</summary>
+    private static NetworkAdapterInfo? PickPrimaryNetwork(IReadOnlyList<NetworkAdapterInfo> adapters)
+    {
+        if (adapters.Count == 0) return null;
+        return adapters.OrderByDescending(ScoreNetworkAdapter).First();
+    }
+
+    private static int ScoreNetworkAdapter(NetworkAdapterInfo a)
+    {
+        var score = 0;
+        if (a.IsPhysical == true) score += 100;
+        if (!string.IsNullOrWhiteSpace(a.MacAddress)) score += 40;
+        if (a.SpeedBps is long sp && sp > 0) score += 20;
+        var n = (a.Name ?? "") + " " + (a.AdapterType ?? "");
+        if (ContainsAny(n, "TAP", "Tunnel", "Wintun", "Virtual", "vEthernet", "Loopback", "Remote NDIS",
+                "Hyper-V", "Wi-Fi Direct", "WAN Miniport", "Kernel Debug", "Bluetooth", "VMware", "VirtualBox",
+                "Hamachi", "zerotier", "Tailscale", "WireGuard", "UU"))
+        {
+            score -= 200;
+        }
+        return score;
+    }
+
+    private static bool ContainsAny(string text, params string[] markers) =>
+        markers.Any(m => text.Contains(m, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>取硬件温度：优先指定名称（如 GPU Core），否则取该硬件最高温度。</summary>
     private static double? PreferNamedTemp(IEnumerable<SensorReading> sensors, Func<string, bool> hwMatch, string preferred)
