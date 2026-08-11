@@ -46,10 +46,15 @@ public partial class OverviewPage : UserControl
             .ToList();
         double? fanRpm = fanVals.Count > 0 ? fanVals.Max() : null;
 
-        // 核心指标全部缺失 → 提示采集异常（性能计数器不可用等）
-        var allMissing = !m.CpuUsagePercent.HasValue && !m.MemoryUsagePercent.HasValue && !m.GpuUsagePercent.HasValue;
-        WarnText.Text = loc["Overview.CollectFailed"];
-        WarnText.Visibility = allMissing ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        // 核心指标/硬件清单整体缺失 → 提示数据源异常（性能计数器/WMI 不可用等）
+        var metricsMissing = !m.CpuUsagePercent.HasValue && !m.MemoryUsagePercent.HasValue && !m.GpuUsagePercent.HasValue;
+        var inventoryEmpty = inv.Cpus.Count == 0 && inv.MemoryModules.Count == 0 && inv.Disks.Count == 0 && inv.Gpus.Count == 0;
+        WarnText.Text = metricsMissing && inventoryEmpty
+            ? loc["Overview.CollectFailed"] + "  " + loc["Overview.InventoryFailed"]
+            : metricsMissing ? loc["Overview.CollectFailed"]
+            : inventoryEmpty ? loc["Overview.InventoryFailed"]
+            : "";
+        WarnText.Visibility = (metricsMissing || inventoryEmpty) ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
 
         Cards.ItemsSource = new List<OverviewCard>
         {
