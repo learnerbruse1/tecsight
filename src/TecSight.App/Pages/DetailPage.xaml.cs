@@ -33,6 +33,13 @@ public partial class DetailPage : UserControl
     /// <summary>语言/主题切换后调用：使缓存的页面模型失效，下次更新时按新语言重建。</summary>
     public void InvalidateModel() => _model = null;
 
+    /// <summary>应用启动时恢复「隐藏网络过滤器噪音」偏好。</summary>
+    public void SetHideNetworkNoise(bool value)
+    {
+        _hideNetworkNoise = value;
+        NoiseFilterBox.IsChecked = value;
+    }
+
     /// <summary>
     /// 每帧调用：只原地更新实时行的值/曲线，不重建控件树（修复滚动卡顿）。
     /// </summary>
@@ -389,6 +396,8 @@ public partial class DetailPage : UserControl
     private void NoiseFilter_Changed(object sender, System.Windows.RoutedEventArgs e)
     {
         _hideNetworkNoise = NoiseFilterBox.IsChecked == true;
+        AppSettings.SetHideNetworkNoise(_hideNetworkNoise);
+        AppSettings.Save();
         InvalidateModel(); // 过滤条件变化 → 重建传感器列表
         if (_lastVm is not null) Update(_lastVm);
     }

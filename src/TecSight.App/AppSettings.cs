@@ -14,6 +14,7 @@ public static class AppSettings
 
     public static string Language { get; private set; } = "";
     public static bool DarkTheme { get; private set; }
+    public static bool HideNetworkNoise { get; private set; }
     public static double WindowLeft { get; private set; } = double.NaN;
     public static double WindowTop { get; private set; } = double.NaN;
     public static double WindowWidth { get; private set; } = 1100;
@@ -29,6 +30,7 @@ public static class AppSettings
             if (j is null) return;
             Language = j.Language ?? "";
             DarkTheme = j.DarkTheme;
+            HideNetworkNoise = j.HideNetworkNoise;
             WindowLeft = j.WindowLeft;
             WindowTop = j.WindowTop;
             WindowWidth = j.WindowWidth > 0 ? j.WindowWidth : 1100;
@@ -41,6 +43,9 @@ public static class AppSettings
         }
     }
 
+    /// <summary>更新「隐藏网络过滤器噪音」偏好（下次 Save 时一并持久化）。</summary>
+    public static void SetHideNetworkNoise(bool value) => HideNetworkNoise = value;
+
     /// <summary>保存语言与主题（不覆盖窗口状态）。</summary>
     public static void Save()
     {
@@ -51,6 +56,7 @@ public static class AppSettings
             {
                 Language = Localization.LocalizationManager.Instance.CurrentLanguage,
                 DarkTheme = Themes.ThemeManager.IsDark,
+                HideNetworkNoise = HideNetworkNoise,
                 WindowLeft = WindowLeft,
                 WindowTop = WindowTop,
                 WindowWidth = WindowWidth,
@@ -79,6 +85,7 @@ public static class AppSettings
     {
         public string? Language { get; set; }
         public bool DarkTheme { get; set; }
+        public bool HideNetworkNoise { get; set; }
         public double WindowLeft { get; set; } = double.NaN;
         public double WindowTop { get; set; } = double.NaN;
         public double WindowWidth { get; set; }

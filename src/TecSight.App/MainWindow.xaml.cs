@@ -30,8 +30,9 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        // 应用持久化设置（主题/语言）
+        // 应用持久化设置（主题/语言/传感器噪音开关）
         AppSettings.Load();
+        _detail.SetHideNetworkNoise(AppSettings.HideNetworkNoise);
         if (AppSettings.DarkTheme) ThemeManager.SetDark(true);
         if (!string.IsNullOrEmpty(AppSettings.Language))
         {
