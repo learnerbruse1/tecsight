@@ -12,4 +12,21 @@
     <SolidColorBrush x:Key="CardBorderBrush" Color="#DCE3F0"/>
     <SolidColorBrush x:Key="TextBrush" Color="#1A2230"/>
     <SolidColorBrush x:Key="SubTextBrush" Color="#5A6472"/>
+    <!-- 顶栏导出菜单：顶部项浅色文字适配深色头部；子菜单弹层保持浅色底+深色文字，保证可读 -->
+    <Style TargetType="MenuItem">
+        <Style.Triggers>
+            <Trigger Property="Role" Value="TopLevelItem">
+                <Setter Property="Foreground" Value="{DynamicResource HeaderFgBrush}"/>
+            </Trigger>
+            <Trigger Property="Role" Value="TopLevelHeader">
+                <Setter Property="Foreground" Value="{DynamicResource HeaderFgBrush}"/>
+            </Trigger>
+            <Trigger Property="Role" Value="SubmenuItem">
+                <Setter Property="Foreground" Value="#14161A"/>
+            </Trigger>
+            <Trigger Property="Role" Value="SubmenuHeader">
+                <Setter Property="Foreground" Value="#14161A"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>
