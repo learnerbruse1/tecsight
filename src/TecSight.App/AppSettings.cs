@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace TecSight.App;
 
@@ -9,6 +10,7 @@ public static class AppSettings
     private static readonly string Dir =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TecSight");
     private static readonly string FilePath = Path.Combine(Dir, "settings.json");
+    private static readonly JsonSerializerOptions JsonOptions = new() { NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals };
 
     public static string Language { get; private set; } = "";
     public static bool DarkTheme { get; private set; }
@@ -23,7 +25,7 @@ public static class AppSettings
         try
         {
             if (!File.Exists(FilePath)) return;
-            var j = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath));
+            var j = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath), JsonOptions);
             if (j is null) return;
             Language = j.Language ?? "";
             DarkTheme = j.DarkTheme;
@@ -54,7 +56,7 @@ public static class AppSettings
                 WindowWidth = WindowWidth,
                 WindowHeight = WindowHeight,
                 WindowMaximized = WindowMaximized,
-            }));
+            }, JsonOptions));
         }
         catch
         {

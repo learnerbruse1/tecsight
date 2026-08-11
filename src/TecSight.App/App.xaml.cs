@@ -19,8 +19,8 @@ public partial class App : Application
         _singleInstance = new Mutex(true, "TecSight.SingleInstance", out var createdNew);
         if (!createdNew && isElevatedRestart)
         {
-            // 提权重启：旧实例正在退出，轮询等待其释放互斥锁（最多 ~6 秒），避免误判"已在运行"导致重启失败
-            for (var i = 0; i < 60 && !createdNew; i++)
+            // 提权重启：旧实例正在退出，轮询等待其释放互斥锁（最多 ~10 秒），避免误判"已在运行"导致重启失败
+            for (var i = 0; i < 100 && !createdNew; i++)
             {
                 Thread.Sleep(100);
                 _singleInstance.Dispose();

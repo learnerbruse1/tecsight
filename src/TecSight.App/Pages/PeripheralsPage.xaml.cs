@@ -52,6 +52,7 @@ public partial class PeripheralsPage : UserControl
             finally
             {
                 _scanning = false;
+                _lastScan = DateTimeOffset.UtcNow; // 成功或失败都推进节流，避免退化为每秒扫描
             }
             if (devices is not null && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
             {

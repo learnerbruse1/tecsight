@@ -67,7 +67,7 @@ public static class PeripheralProbe
                 var size = GetUInt64(o, "Size");
                 return new PeripheralDevice(GetString(o, "Model"), Manufacturer: null, Description: "USB Disk",
                     Category: "storage", PnpClass: "USB",
-                    Detail: size is ulong s && s > 0 ? FormatBytes(s) : null);
+                    Detail: size is ulong s && s > 0 ? FormatUtil.Bytes(s, null) : null);
             }));
     }
 
@@ -83,7 +83,7 @@ public static class PeripheralProbe
                 var fs = GetString(o, "FileSystem");
                 return new PeripheralDevice(id, Manufacturer: null, Description: "Removable Disk",
                     Category: "storage", PnpClass: "LogicalDisk",
-                    Detail: $"{id}  {FormatBytes(size ?? 0)}  free {FormatBytes(free ?? 0)}  {fs}");
+                    Detail: $"{id}  {FormatUtil.Bytes(size ?? 0, null)}  free {FormatUtil.Bytes(free ?? 0, null)}  {fs}");
             }));
     }
 
@@ -139,13 +139,6 @@ public static class PeripheralProbe
         }
     }
 
-    private static string FormatBytes(double b)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        var i = 0;
-        while (b >= 1024 && i < units.Length - 1) { b /= 1024; i++; }
-        return $"{b:0.##} {units[i]}";
-    }
 
     private static string? GetString(ManagementBaseObject o, string p)
     {
