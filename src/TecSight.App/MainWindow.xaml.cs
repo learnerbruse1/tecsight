@@ -1,6 +1,7 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Security.Principal;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls;
@@ -40,6 +41,9 @@ public partial class MainWindow : Window
         }
 
         InitializeComponent();
+
+        // 标题栏随主题变深/浅色（DWM）
+        SourceInitialized += (_, _) => ApplyTitleBarTheme();
 
         // 主题按钮与已保存/已应用的主题保持一致
         ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
@@ -177,8 +181,35 @@ public partial class MainWindow : Window
     {
         ThemeManager.Toggle();
         ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
+        ApplyTitleBarTheme();
         AppSettings.Save();
     }
+
+    /// <summary>让 Windows 标题栏跟随应用深浅主题（DWM 沉浸式深色）。</summary>
+    private void ApplyTitleBarTheme()
+    {
+        try
+        {
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero) return;
+            var dark = ThemeManager.IsDark ? 1 : 0;
+            // Windows 10 2004+ / 11 使用属性 20；旧版 1809-1903 使用 19
+            if (DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int)) != 0)
+            {
+                DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_OLD, ref dark, sizeof(int));
+            }
+        }
+        catch
+        {
+            // DWM 不可用时保持系统标题栏
+        }
+    }
+
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE_OLD = 19;
 
     /// <summary>以管理员权限重启，以便读取需要内核驱动的传感器（CPU 温度/风扇等）。</summary>
     private void AdminRestart_Click(object sender, RoutedEventArgs e)
