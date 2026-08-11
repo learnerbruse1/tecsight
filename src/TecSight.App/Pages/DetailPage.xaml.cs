@@ -113,7 +113,7 @@ public partial class DetailPage : UserControl
                     v => Format.Pct(v.Snapshot.Metrics.CpuUsagePercent), m => m.CpuUsagePercent);
                 AddMetric(metricRows, formatters, selectors, loc["Detail.CpuFreq"],
                     v => Format.FreqGhz(v.Snapshot.Metrics.CpuFrequencyMhz), m => m.CpuFrequencyMhz);
-                sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s => HardwareClassifier.MatchesCpuHw(s.HardwareName)).ToList();
+                sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s => HardwareClassifier.MatchesCpuHw(s.HardwareName)).OrderBy(s => s.SensorName).ToList();
                 break;
             }
             case AppPage.Memory:
@@ -164,7 +164,9 @@ public partial class DetailPage : UserControl
                         models.Any(m => !string.IsNullOrEmpty(m) && s.HardwareName.Contains(m, StringComparison.OrdinalIgnoreCase))
                         || s.SensorName.Contains("SMART", StringComparison.OrdinalIgnoreCase)
                         || s.SensorName.Contains("Remaining Life", StringComparison.OrdinalIgnoreCase)
-                        || s.SensorName.Contains("Wear", StringComparison.OrdinalIgnoreCase)).ToList();
+                        || s.SensorName.Contains("Wear", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(s => s.HardwareName).ThenBy(s => s.SensorName)
+                    .ToList();
                 };
                 smartFilter = v => v.Snapshot.Metrics.SmartAttributes;
                 break;
@@ -201,8 +203,10 @@ public partial class DetailPage : UserControl
                     var list = v.Snapshot.Metrics.GpuEngines
                         .Select(e => new SensorReading("GPU Engine", e.EngineType, e.Percent, "%"))
                         .ToList();
-                    list.AddRange(v.Snapshot.Metrics.Sensors.Where(s => HardwareClassifier.MatchesGpuHw(s.HardwareName)));
-                    return list;
+                    list.AddRange(v.Snapshot.Metrics.Sensors
+                        .Where(s => HardwareClassifier.MatchesGpuHw(s.HardwareName))
+                        .OrderBy(s => s.HardwareName).ThenBy(s => s.SensorName));
+                    return list.OrderBy(s => s.HardwareName).ThenBy(s => s.SensorName).ToList();
                 };
                 break;
             }
@@ -285,7 +289,7 @@ public partial class DetailPage : UserControl
                 break;
             }
             case AppPage.Sensors:
-                sensorFilter = v => v.Snapshot.Metrics.Sensors.ToList();
+                sensorFilter = v => v.Snapshot.Metrics.Sensors.OrderBy(s => s.HardwareName).ThenBy(s => s.SensorName).ToList();
                 break;
             case AppPage.OtherDevices:
             {
