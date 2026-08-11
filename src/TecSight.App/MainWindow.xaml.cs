@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Principal;
 using System.IO;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -261,6 +262,22 @@ public partial class MainWindow : Window
         };
         if (dlg.ShowDialog(this) != true) return;
         File.WriteAllText(dlg.FileName, CompatibilityReporter.Build(_vm.Snapshot));
+    }
+
+    /// <summary>快捷键：Ctrl+E 打开导出菜单；F5 手动刷新。</summary>
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        if (e.Key == Key.E && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            ExportMenuItem.IsSubmenuOpen = true;
+            e.Handled = true;
+        }
+        else if (e.Key == Key.F5)
+        {
+            CollectAsync();
+            e.Handled = true;
+        }
+        base.OnPreviewKeyDown(e);
     }
 
     protected override void OnClosed(EventArgs e)
