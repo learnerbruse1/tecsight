@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using TecSight.Core;
 using TecSight.Core.Models;
@@ -21,7 +21,7 @@ public partial class PeripheralsPage : UserControl
 
     public PeripheralsPage() => InitializeComponent();
 
-    /// <summary>每帧调用（1 秒），内部按 5 秒节流，在后台线程扫描外设。</summary>
+    /// <summary>每帧调用（1 秒），内部按 10 秒节流（Win32_PnPEntity 枚举较慢 ~650ms），在后台线程扫描外设。</summary>
     public void Update(MainViewModel vm)
     {
         _vm = vm;
@@ -42,7 +42,7 @@ public partial class PeripheralsPage : UserControl
             _pendingRefresh = true; // 扫描进行中再点刷新：标记待办，当前扫描完成后立即再扫一次
             return;
         }
-        if (DateTimeOffset.UtcNow - _lastScan < TimeSpan.FromSeconds(5)) return;
+        if (DateTimeOffset.UtcNow - _lastScan < TimeSpan.FromSeconds(10)) return;
         _scanning = true;
         _ = Task.Run(() =>
         {

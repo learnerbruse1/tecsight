@@ -10,7 +10,7 @@
 - **Live metrics**: CPU usage & live clock, memory, GPU usage & VRAM, disk I/O, network throughput, battery, uptime, process ranking — **1-second refresh** (overview shows last-updated time)
 - **Sensors & health**: temperatures / fan speeds / voltages (LibreHardwareMonitor); disk SMART attributes & health; sensors needing kernel drivers (CPU temp/fans) can be read via "Restart as admin"
 - **History charts**: last-hour trends (ring buffer, tiny memory footprint)
-- **Peripherals**: hotplug devices auto-classified (storage/keyboard/mouse/camera/audio/Bluetooth/printer/USB), 5 s refresh + manual refresh
+- **Peripherals**: hotplug devices auto-classified (storage/keyboard/mouse/camera/audio/Bluetooth/printer/USB), auto refresh + manual refresh
 - **Export**: JSON / TXT / HTML / copy summary / compatibility report / history CSV
 - **Bilingual UI + themes**: switchable and remembered; window position/size/theme/language persisted
 
@@ -21,7 +21,7 @@
 - Detail pages: full inventory + live values + history charts (1 hour)
 - Sensors page: all sensor readings, with an optional 'hide network filter noise' toggle (preference is remembered)
 - Processes page: top processes by CPU/memory (with PID) and total process count
-- Peripherals page: hotplug device classification (5 s refresh + manual refresh)
+- Peripherals page: hotplug device classification (auto refresh + manual refresh)
 - Other Devices page: displays (EDID) / audio / USB / keyboards / mice / printers
 - Top bar: theme toggle 🌙 / language toggle / export menu (JSON·TXT·HTML·history CSV·copy summary·compatibility report) / restart as admin
 - A prominent banner is shown on the overview when a data source (performance counters/WMI) is unavailable
