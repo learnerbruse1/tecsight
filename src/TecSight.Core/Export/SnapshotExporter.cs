@@ -12,6 +12,7 @@ public interface ISnapshotExporter
     string ExportJson(Snapshot snapshot);
     string ExportTxt(Snapshot snapshot);
     string ExportHtml(Snapshot snapshot);
+    string ExportHistoryCsv(IEnumerable<LiveMetrics> history);
 }
 
 /// <summary>默认快照导出器。</summary>
@@ -22,6 +23,23 @@ public sealed class SnapshotExporter : ISnapshotExporter
     public string ExportJson(Snapshot snapshot) => JsonSerializer.Serialize(snapshot, JsonOptions);
 
     public string ExportHtml(Snapshot snapshot) => HtmlReport.Build(snapshot);
+
+    public string ExportHistoryCsv(IEnumerable<LiveMetrics> history)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Timestamp,CpuPercent,CpuFrequencyMhz,MemoryPercent,MemoryUsedBytes,MemoryTotalBytes,GpuPercent,DiskReadBps,DiskWriteBps,NetDownBps,NetUpBps,BatteryPercent,UptimeSeconds");
+        foreach (var m in history)
+        {
+            sb.AppendLine(string.Join(",",
+                m.Timestamp.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+                Num(m.CpuUsagePercent), Num(m.CpuFrequencyMhz), Num(m.MemoryUsagePercent),
+                Num(m.MemoryUsedBytes), Num(m.MemoryTotalBytes), Num(m.GpuUsagePercent),
+                Num(m.DiskReadBytesPerSec), Num(m.DiskWriteBytesPerSec),
+                Num(m.NetworkDownloadBps), Num(m.NetworkUploadBps),
+                Num(m.BatteryChargePercent), Num(m.SystemUptimeSeconds)));
+        }
+        return sb.ToString();
+    }
 
     public string ExportTxt(Snapshot snapshot)
     {
@@ -103,6 +121,8 @@ public sealed class SnapshotExporter : ISnapshotExporter
         var list = names.Where(n => !string.IsNullOrWhiteSpace(n)).Take(8).Select(n => n!.Trim()).ToList();
         return list.Count == 0 ? "" : string.Join("; ", list) + (names.Count() > 8 ? " …" : "");
     }
+
+    private static string Num(double? v) => v.HasValue ? v.Value.ToString("0.###", CultureInfo.InvariantCulture) : "";
 
     private static string HealthText(StorageHealth? h) => h?.Status switch
     {

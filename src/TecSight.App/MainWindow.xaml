@@ -18,6 +18,7 @@
                             <MenuItem Header="{Binding Loc[Export.Json]}" Click="ExportJson_Click"/>
                             <MenuItem Header="{Binding Loc[Export.Txt]}" Click="ExportTxt_Click"/>
                             <MenuItem Header="{Binding Loc[Export.Html]}" Click="ExportHtml_Click"/>
+                            <MenuItem Header="{Binding Loc[Export.CsvHistory]}" Click="ExportHistoryCsv_Click"/>
                             <Separator/>
                             <MenuItem Header="{Binding Loc[Export.Compat]}" Click="CompatButton_Click"/>
                         </MenuItem>

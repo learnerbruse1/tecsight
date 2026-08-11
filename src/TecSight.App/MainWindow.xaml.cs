@@ -216,6 +216,17 @@ public partial class MainWindow : Window
         File.WriteAllText(dlg.FileName, _vm.Exporter.ExportHtml(_vm.Snapshot));
     }
 
+    private void ExportHistoryCsv_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new SaveFileDialog
+        {
+            FileName = $"tecsight-history-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
+            Filter = "CSV 文件 (*.csv)|*.csv",
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        File.WriteAllText(dlg.FileName, _vm.Exporter.ExportHistoryCsv(_vm.History));
+    }
+
     private void ExportJson_Click(object sender, RoutedEventArgs e) => Export("json");
 
     private void ExportTxt_Click(object sender, RoutedEventArgs e) => Export("txt");

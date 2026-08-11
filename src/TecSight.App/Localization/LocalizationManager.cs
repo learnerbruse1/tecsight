@@ -54,7 +54,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
                 Both("Export.Compat", "兼容性报告", "Compat Report");
                 Both("Export.Copy", "复制摘要", "Copy Summary");
                 Both("Export.Html", "导出 HTML", "Export HTML");
-        Both("Export.Menu", "导出 ▾", "Export ▾");
+                Both("Export.Menu", "导出 ▾", "Export ▾");
+        Both("Export.CsvHistory", "导出历史 CSV", "Export History CSV");
         Both("Export.Saved", "已导出：", "Exported: ");
 
         Both("Overview.Computer", "计算机", "Computer");

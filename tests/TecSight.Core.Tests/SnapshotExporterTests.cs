@@ -155,3 +155,21 @@ public class SnapshotExporterEmptyTests
         Assert.Contains("Inventory", json);
     }
 }
+public class SnapshotExporterHistoryCsvTests
+{
+    [Fact]
+    public void ExportHistoryCsv_ProducesHeaderAndRows()
+    {
+        var history = new[]
+        {
+            new LiveMetrics { Timestamp = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), CpuUsagePercent = 12.5, CpuFrequencyMhz = 2250 },
+            new LiveMetrics { Timestamp = new DateTimeOffset(2026, 1, 1, 0, 0, 1, TimeSpan.Zero), CpuUsagePercent = 13.0, CpuFrequencyMhz = 2250 },
+        };
+
+        var csv = new SnapshotExporter().ExportHistoryCsv(history);
+
+        Assert.Contains("Timestamp,CpuPercent", csv);
+        Assert.Contains("2026-01-01 00:00:00,12.5,2250", csv);
+        Assert.Contains("2026-01-01 00:00:01,13,2250", csv);
+    }
+}
