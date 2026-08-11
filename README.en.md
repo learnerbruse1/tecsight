@@ -24,6 +24,7 @@
 - Other Devices page: displays (EDID) / audio / USB / keyboards / mice / printers
 - Top bar: theme toggle 🌙 / language toggle / export menu (JSON·TXT·HTML·history CSV·copy summary·compatibility report) / restart as admin
 - A prominent banner is shown on the overview when a data source (performance counters/WMI) is unavailable
+- Shortcuts: Ctrl+E opens the export menu, F5 refreshes, F11 toggles dark/light theme
 
 ## Compatibility
 

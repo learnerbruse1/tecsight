@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using TecSight.Core;
 using TecSight.Core.Models;
@@ -17,6 +17,7 @@ public partial class PeripheralsPage : UserControl
     private MainViewModel? _vm;
     private DateTimeOffset _lastScan = DateTimeOffset.MinValue;
     private bool _scanning;
+    private bool _pendingRefresh;
 
     public PeripheralsPage() => InitializeComponent();
 
@@ -35,7 +36,12 @@ public partial class PeripheralsPage : UserControl
 
     private void MaybeScanAsync()
     {
-        if (_scanning || _vm is null) return;
+        if (_vm is null) return;
+        if (_scanning)
+        {
+            _pendingRefresh = true; // 扫描进行中再点刷新：标记待办，当前扫描完成后立即再扫一次
+            return;
+        }
         if (DateTimeOffset.UtcNow - _lastScan < TimeSpan.FromSeconds(5)) return;
         _scanning = true;
         _ = Task.Run(() =>
@@ -65,6 +71,12 @@ public partial class PeripheralsPage : UserControl
                 {
                     // 窗口在检查与投递之间关闭等竞态：忽略
                 }
+            }
+            if (_pendingRefresh)
+            {
+                _pendingRefresh = false;
+                _lastScan = DateTimeOffset.MinValue;
+                MaybeScanAsync();
             }
         });
     }
