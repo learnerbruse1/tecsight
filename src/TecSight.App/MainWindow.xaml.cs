@@ -39,6 +39,8 @@ public partial class MainWindow : Window
         // 主题按钮与已保存/已应用的主题保持一致
         ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
 
+        ApplySavedWindowState();
+
         var collector = new HistoryCollector(
             new SnapshotCollector(
                 new CachedInventoryProvider(new WmiInventoryProvider()),
@@ -236,6 +238,34 @@ public partial class MainWindow : Window
         _timer.Stop();
         _metricsProvider.Dispose();
         _sensorProvider.Dispose();
+
+        // 保存窗口位置/大小/最大化状态（最小化时用还原边界）
+        if (WindowState != WindowState.Minimized)
+        {
+            var rb = WindowState == WindowState.Normal ? RestoreBounds : new Rect(Left, Top, Width, Height);
+            AppSettings.SaveWindow(rb.Left, rb.Top, rb.Width, rb.Height, WindowState == WindowState.Maximized);
+        }
         base.OnClosed(e);
+    }
+
+    /// <summary>恢复上次窗口位置/大小（防止还原到屏幕外）。</summary>
+    private void ApplySavedWindowState()
+    {
+        if (double.IsNaN(AppSettings.WindowLeft)) return;
+        var w = AppSettings.WindowWidth;
+        var h = AppSettings.WindowHeight;
+        var x = AppSettings.WindowLeft;
+        var y = AppSettings.WindowTop;
+        if (w < 200 || h < 150) return;
+        var sl = SystemParameters.VirtualScreenLeft;
+        var st = SystemParameters.VirtualScreenTop;
+        var sw = SystemParameters.VirtualScreenWidth;
+        var sh = SystemParameters.VirtualScreenHeight;
+        if (x + 40 > sl + sw || y + 40 > st + sh || x + w < sl + 40 || y + h < st + 40) return;
+        Left = x;
+        Top = y;
+        Width = w;
+        Height = h;
+        if (AppSettings.WindowMaximized) WindowState = WindowState.Maximized;
     }
 }
