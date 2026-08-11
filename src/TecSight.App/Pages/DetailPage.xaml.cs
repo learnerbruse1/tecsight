@@ -111,6 +111,8 @@ public partial class DetailPage : UserControl
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.CpuUsage"],
                     v => Format.Pct(v.Snapshot.Metrics.CpuUsagePercent), m => m.CpuUsagePercent);
+                AddMetric(metricRows, formatters, selectors, loc["Detail.CpuFreq"],
+                    v => Format.FreqGhz(v.Snapshot.Metrics.CpuFrequencyMhz), m => m.CpuFrequencyMhz);
                 sensorFilter = v => v.Snapshot.Metrics.Sensors.Where(s => HardwareClassifier.MatchesCpuHw(s.HardwareName)).ToList();
                 break;
             }

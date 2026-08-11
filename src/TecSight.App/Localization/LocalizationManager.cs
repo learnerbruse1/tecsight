@@ -156,7 +156,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.DesignCapacity", "设计容量", "Design Capacity");
         Both("Detail.FullChargeCapacity", "满充容量", "Full Charge Capacity");
         Both("Detail.BatteryLoss", "损耗", "Wear");
-        Both("Detail.CpuUsage", "CPU 使用率", "CPU Usage");
+                Both("Detail.CpuUsage", "CPU 使用率", "CPU Usage");
+        Both("Detail.CpuFreq", "实时频率", "Live Clock");
         Both("Detail.MemUsage", "内存使用率", "Memory Usage");
         Both("Detail.MemUsed", "已用 / 总计", "Used / Total");
         Both("Detail.DiskRead", "读取", "Read");

@@ -36,6 +36,9 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
+        // 主题按钮与已保存/已应用的主题保持一致
+        ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
+
         var collector = new HistoryCollector(
             new SnapshotCollector(
                 new CachedInventoryProvider(new WmiInventoryProvider()),
