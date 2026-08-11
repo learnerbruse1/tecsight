@@ -13,8 +13,21 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        var isElevatedRestart = e.Args.Any(a => string.Equals(a, "--restart-as-admin", StringComparison.OrdinalIgnoreCase));
+
         // 单实例：已在运行则提示并退出
         _singleInstance = new Mutex(true, "TecSight.SingleInstance", out var createdNew);
+        if (!createdNew && isElevatedRestart)
+        {
+            // 提权重启：旧实例正在退出，轮询等待其释放互斥锁（最多 ~6 秒），避免误判"已在运行"导致重启失败
+            for (var i = 0; i < 60 && !createdNew; i++)
+            {
+                Thread.Sleep(100);
+                _singleInstance.Dispose();
+                _singleInstance = new Mutex(true, "TecSight.SingleInstance", out createdNew);
+            }
+        }
+
         if (!createdNew)
         {
             MessageBox.Show(Localization.LocalizationManager.Instance["Common.AlreadyRunning"], "TecSight", MessageBoxButton.OK, MessageBoxImage.Information);

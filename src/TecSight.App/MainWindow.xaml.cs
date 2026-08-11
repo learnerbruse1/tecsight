@@ -176,18 +176,25 @@ public partial class MainWindow : Window
     {
         try
         {
+            var exe = Environment.ProcessPath ?? "TecSight.App.exe";
             var psi = new ProcessStartInfo
             {
-                FileName = Environment.ProcessPath ?? "TecSight.App.exe",
+                FileName = exe,
+                Arguments = "--restart-as-admin",
                 UseShellExecute = true,
                 Verb = "runas",
+                WorkingDirectory = Path.GetDirectoryName(exe) ?? Environment.CurrentDirectory,
             };
-            Process.Start(psi);
+            var elevated = Process.Start(psi);
+            if (elevated is null)
+            {
+                return; // 启动失败：保持当前会话
+            }
             Application.Current.Shutdown();
         }
         catch
         {
-            // 用户取消 UAC 或启动失败：保持当前会话
+            // UAC 被取消或启动失败：保持当前会话（不关闭当前实例）
         }
     }
 
