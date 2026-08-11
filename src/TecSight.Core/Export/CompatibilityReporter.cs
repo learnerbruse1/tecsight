@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using TecSight.Core.Models;
 
@@ -25,7 +26,7 @@ public static class CompatibilityReporter
         Row(sb, "Motherboard", inv.Motherboard is null ? 0 : 1, inv.Motherboard?.Product);
         Row(sb, "Network adapters", inv.NetworkAdapters.Count, $"{inv.NetworkAdapters.Count} adapter(s)");
         Row(sb, "IP configurations", inv.NetworkConfigurations.Count, $"{inv.NetworkConfigurations.Count} enabled");
-        Row(sb, "Battery", inv.Battery is null ? 0 : 1, inv.Battery is { } b ? $"{b.DeviceName}  {b.DesignedCapacityWh?.ToString("0.0") ?? "N/A"}Wh/{b.FullChargeCapacityWh?.ToString("0.0") ?? "N/A"}Wh  {b.CycleCount?.ToString() ?? "N/A"} cycles  {b.Chemistry ?? ""}".Trim() : null);
+        Row(sb, "Battery", inv.Battery is null ? 0 : 1, inv.Battery is { } b ? $"{b.DeviceName}  {b.DesignedCapacityWh?.ToString("0.0", CultureInfo.InvariantCulture) ?? "N/A"}Wh/{b.FullChargeCapacityWh?.ToString("0.0", CultureInfo.InvariantCulture) ?? "N/A"}Wh  {b.CycleCount?.ToString() ?? "N/A"} cycles  {b.Chemistry ?? ""}".Trim() : null);
         sb.AppendLine();
 
         sb.AppendLine("== Live metrics ==");
