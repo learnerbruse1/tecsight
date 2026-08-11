@@ -43,7 +43,10 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Common.Good", "良好", "Good");
         Both("Common.Warning", "注意", "Warning");
                 Both("Common.Critical", "危险", "Critical");
-                Both("Common.RestartAsAdmin", "以管理员权限重启", "Restart as admin");
+                        Both("Common.RestartAsAdmin", "以管理员权限重启", "Restart as admin");
+        Both("Common.AlreadyRunning", "TecSight 已在运行。", "TecSight is already running.");
+        Both("Common.UnhandledError", "发生未处理的错误：", "An unhandled error occurred:");
+        Both("Common.ErrorLogged", "详情已写入日志。", "Details have been written to the log.");
         Both("Common.Theme", "切换深浅主题", "Toggle dark/light theme");
 
         Both("Export.Json", "导出 JSON", "Export JSON");

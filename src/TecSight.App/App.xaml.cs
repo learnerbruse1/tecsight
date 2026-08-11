@@ -17,7 +17,7 @@ public partial class App : Application
         _singleInstance = new Mutex(true, "TecSight.SingleInstance", out var createdNew);
         if (!createdNew)
         {
-            MessageBox.Show("TecSight 已在运行。", "TecSight", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(Localization.LocalizationManager.Instance["Common.AlreadyRunning"], "TecSight", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }
@@ -26,7 +26,8 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             LogError(args.Exception);
-            MessageBox.Show("发生未处理的错误：\n" + args.Exception.Message + "\n\n详情已写入日志。", "TecSight",
+            var loc = Localization.LocalizationManager.Instance;
+            MessageBox.Show(loc["Common.UnhandledError"] + "\n" + args.Exception.Message + "\n\n" + loc["Common.ErrorLogged"], "TecSight",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             args.Handled = true;
         };
