@@ -55,7 +55,7 @@ public sealed class SnapshotExporter : ISnapshotExporter
         sb.AppendLine($"  安装 Installed: {inv.OsInstallDate ?? "不可用 N/A"}  上次启动 Last Boot: {inv.LastBootTime ?? "不可用 N/A"}");
         foreach (var c in inv.Cpus)
         {
-            sb.AppendLine($"  CPU: {c.Name ?? "不可用 N/A"}  {c.CoreCount}核/{c.LogicalProcessorCount}线程  {c.Architecture ?? ""}  L2={c.L2CacheKb ?? 0}KB L3={c.L3CacheKb ?? 0}KB".TrimEnd());
+            sb.AppendLine($"  CPU: {c.Name ?? "不可用 N/A"}  {c.CoreCount}核/{c.LogicalProcessorCount}线程  {c.Architecture ?? ""}  L2={(c.L2CacheKb.HasValue ? $"{c.L2CacheKb}KB" : "N/A")} L3={(c.L3CacheKb.HasValue ? $"{c.L3CacheKb}KB" : "N/A")}".TrimEnd());
         }
         sb.AppendLine($"  内存 Memory: {inv.MemoryModules.Count} 条 / {FormatBytes(inv.MemoryModules.Sum(x => long.TryParse(x.CapacityBytes, out var b) ? b : 0))}");
         foreach (var d in inv.Disks)

@@ -39,7 +39,7 @@ public static class HtmlReport
 
         sb.AppendLine("<h2>硬件清单</h2>");
         Section(sb, "CPU", ["型号", "核心", "线程", "架构", "插槽", "L2 缓存", "L3 缓存", "当前频率", "处理器 ID"],
-            inv.Cpus.Select(c => new[] { c.Name, c.CoreCount.ToString(), c.LogicalProcessorCount.ToString(), c.Architecture, c.SocketDesignation, $"{c.L2CacheKb ?? 0} KB", $"{c.L3CacheKb ?? 0} KB", $"{c.CurrentClockMhz ?? 0} MHz", c.ProcessorId }).ToList());
+            inv.Cpus.Select(c => new[] { c.Name, c.CoreCount.ToString(), c.LogicalProcessorCount.ToString(), c.Architecture, c.SocketDesignation, (c.L2CacheKb.HasValue ? $"{c.L2CacheKb} KB" : "N/A"), (c.L3CacheKb.HasValue ? $"{c.L3CacheKb} KB" : "N/A"), (c.CurrentClockMhz.HasValue ? $"{c.CurrentClockMhz} MHz" : "N/A"), c.ProcessorId }).ToList());
         Section(sb, "内存模块", ["容量", "频率", "类型", "实际频率", "电压", "制造商", "序列号", "插槽"],
             inv.MemoryModules.Select(x => new[] { Gb(x.CapacityBytes), $"{x.Speed} MHz", x.MemoryType, x.ConfiguredClockMhz, x.ConfiguredVoltageMv, x.Manufacturer, x.SerialNumber, x.DeviceLocator }).ToList());
         Section(sb, "磁盘", ["型号", "容量", "介质", "总线", "固件", "健康度"],
