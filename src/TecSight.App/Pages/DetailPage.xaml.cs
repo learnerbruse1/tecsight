@@ -10,6 +10,8 @@ public partial class DetailPage : UserControl
 {
     private AppPage _category = AppPage.Cpu;
     private PageModel? _model;
+    private MainViewModel? _lastVm;
+    private bool _hideNetworkNoise; // 传感器页：隐藏网络过滤器噪音（默认关闭，不改变默认行为）
 
     private sealed class PageModel
     {
@@ -36,6 +38,8 @@ public partial class DetailPage : UserControl
     /// </summary>
     public void Update(MainViewModel vm)
     {
+        _lastVm = vm;
+        NoiseFilterBox.Visibility = _category == AppPage.Sensors ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
         var model = EnsureModel(vm);
 
         for (var i = 0; i < model.MetricRows.Count; i++)
@@ -71,13 +75,13 @@ public partial class DetailPage : UserControl
                           || _model.SmartRows.Count != smartCount;
         if (needRebuild)
         {
-            _model = BuildModel(vm, _category);
+            _model = BuildModel(vm, _category, _hideNetworkNoise);
             Sections.ItemsSource = _model.Sections;
         }
         return _model!;
     }
 
-    private static PageModel BuildModel(MainViewModel vm, AppPage category)
+    private static PageModel BuildModel(MainViewModel vm, AppPage category, bool hideNetworkNoise)
     {
         var loc = vm.Loc;
         var inv = vm.Snapshot.Inventory;
@@ -290,7 +294,9 @@ public partial class DetailPage : UserControl
                 break;
             }
             case AppPage.Sensors:
-                sensorFilter = v => v.Snapshot.Metrics.Sensors.OrderBy(s => s.HardwareName).ThenBy(s => s.SensorName).ToList();
+                sensorFilter = v => v.Snapshot.Metrics.Sensors
+                    .Where(s => !hideNetworkNoise || !IsNetworkFilterNoise(s.HardwareName))
+                    .OrderBy(s => s.HardwareName).ThenBy(s => s.SensorName).ToList();
                 break;
             case AppPage.OtherDevices:
             {
@@ -378,6 +384,30 @@ public partial class DetailPage : UserControl
         };
     }
 
+
+    /// <summary>传感器页「隐藏网络过滤器噪音」开关：过滤 NDIS 过滤器栈的重复计数实例。</summary>
+    private void NoiseFilter_Changed(object sender, System.Windows.RoutedEventArgs e)
+    {
+        _hideNetworkNoise = NoiseFilterBox.IsChecked == true;
+        InvalidateModel(); // 过滤条件变化 → 重建传感器列表
+        if (_lastVm is not null) Update(_lastVm);
+    }
+
+    private static bool IsNetworkFilterNoise(string? hardwareName)
+    {
+        var n = hardwareName ?? "";
+        return n.Contains("NDIS", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("LightWeight Filter", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("WFP", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("QoS Packet Scheduler", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("Leigod", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("Npcap", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("VirtualBox", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("Native WiFi Filter", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("Virtual WiFi Filter", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("WAN Miniport", StringComparison.OrdinalIgnoreCase)
+               || n.Contains("Kernel Debug", StringComparison.OrdinalIgnoreCase);
+    }
     private static void AddMetric(
         List<LiveRow> rows, List<Func<MainViewModel, string>> fmts, List<Func<LiveMetrics, double?>?> sels,
         string label, Func<MainViewModel, string> fmt, Func<LiveMetrics, double?>? sel)

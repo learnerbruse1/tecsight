@@ -3,7 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:TecSight.App.Controls"
              Foreground="{DynamicResource TextBrush}" Background="{DynamicResource BgBrush}">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="16">
+    <DockPanel>
+        <CheckBox x:Name="NoiseFilterBox" DockPanel.Dock="Top" Margin="16,12,16,0"
+                  Content="{Binding Loc[Detail.HideNetworkNoise]}" Foreground="{DynamicResource TextBrush}"
+                  Checked="NoiseFilter_Changed" Unchecked="NoiseFilter_Changed"
+                  Visibility="Collapsed"/>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="16">
         <ItemsControl x:Name="Sections">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
@@ -28,5 +33,6 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
-    </ScrollViewer>
+        </ScrollViewer>
+    </DockPanel>
 </UserControl>

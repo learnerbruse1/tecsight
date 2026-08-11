@@ -184,6 +184,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.VramFree", "显存空闲", "VRAM Free");
         Both("Detail.VramUsage", "显存占用", "VRAM Usage");
         Both("Detail.NoSensors", "无传感器数据", "No sensor data");
+        Both("Detail.HideNetworkNoise", "隐藏网络过滤器噪音", "Hide network filter noise");
                 Both("Detail.NoSmart", "无 SMART 属性（可能需要管理员权限）", "No SMART attributes (may require admin)");
         Both("Detail.NoCpuTemp", "未检测到 CPU 温度", "No CPU temperature detected");
         Both("Detail.AdminHint", "部分传感器（CPU 温度 / 风扇转速）需要管理员权限或硬件支持，可用右上角按钮以管理员权限重启", "Some sensors (CPU temp / fan speed) need admin rights or hardware support — use the top-right button to restart as admin");
