@@ -12,7 +12,7 @@
         <ItemsControl x:Name="Sections">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <GroupBox Header="{Binding Title}" Margin="0,8,0,8" Padding="10" Foreground="{DynamicResource TextBrush}">
+                    <GroupBox Header="{Binding Title}" Margin="0,8,0,8" Padding="10" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                         <ItemsControl ItemsSource="{Binding Rows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
