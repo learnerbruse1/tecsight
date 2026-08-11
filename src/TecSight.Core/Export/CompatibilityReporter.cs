@@ -19,6 +19,7 @@ public static class CompatibilityReporter
         sb.AppendLine();
 
         sb.AppendLine("== Hardware categories ==");
+        Row(sb, "OS", 1, $"{inv.OsCaption} {inv.OsVersion} {inv.OsArchitecture} {inv.FirmwareType}".Trim());
         Row(sb, "CPU", inv.Cpus.Count, inv.Cpus.FirstOrDefault()?.Name);
         Row(sb, "Memory", inv.MemoryModules.Count, $"{inv.MemoryModules.Count} module(s)");
         Row(sb, "Storage", inv.Disks.Count, inv.Disks.FirstOrDefault()?.Model);

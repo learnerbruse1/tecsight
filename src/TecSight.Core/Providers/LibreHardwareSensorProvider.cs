@@ -104,7 +104,7 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
 
         foreach (var sensor in hardware.Sensors)
         {
-            if (sensor.Value is float value && IsWantedType(sensor.SensorType))
+            if (sensor.Value is float value && float.IsFinite(value) && IsWantedType(sensor.SensorType))
             {
                 result.Add(new SensorReading(hardware.Name, sensor.Name, value, UnitFor(sensor.SensorType)));
             }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using TecSight.Core.Models;
 
 namespace TecSight.Core;
@@ -16,7 +17,7 @@ public interface ISnapshotExporter
 /// <summary>默认快照导出器。</summary>
 public sealed class SnapshotExporter : ISnapshotExporter
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals };
 
     public string ExportJson(Snapshot snapshot) => JsonSerializer.Serialize(snapshot, JsonOptions);
 

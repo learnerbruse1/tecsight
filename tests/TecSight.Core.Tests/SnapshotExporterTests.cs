@@ -99,3 +99,27 @@ public class SnapshotExporterHtmlTests
         Assert.Contains("</html>", html);
     }
 }
+public class SnapshotExporterNonFiniteTests
+{
+    [Fact]
+    public void ExportJson_DoesNotThrowOnNonFiniteSensorValues()
+    {
+        var snap = new Snapshot(
+            DateTimeOffset.UtcNow,
+            new HardwareInventory(),
+            new LiveMetrics
+            {
+                Timestamp = DateTimeOffset.UtcNow,
+                Sensors =
+                [
+                    new SensorReading("HW", "NaN sensor", double.NaN, ""),
+                    new SensorReading("HW", "Inf sensor", double.PositiveInfinity, ""),
+                    new SensorReading("HW", "OK sensor", 42, "°C"),
+                ],
+            });
+
+        var json = new SnapshotExporter().ExportJson(snap);
+
+        Assert.Contains("OK sensor", json);
+    }
+}
