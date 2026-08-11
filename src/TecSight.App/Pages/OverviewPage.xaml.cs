@@ -19,14 +19,21 @@ public partial class OverviewPage : UserControl
         var gpu = HardwareClassifier.PickPrimaryGpu(inv.Gpus);
         var disk = inv.Disks.FirstOrDefault();
         var net = inv.NetworkAdapters.FirstOrDefault(n => n.IsPhysical == true) ?? inv.NetworkAdapters.FirstOrDefault();
+        var netSub = net?.Name ?? loc["Common.NotAvailable"];
+        if (net?.SpeedBps is long sp && sp > 0)
+        {
+            netSub += $"  ·  {Format.LinkSpeed(sp)}";
+        }
         var bat = inv.Battery;
         var gpuClock = m.Sensors.FirstOrDefault(s =>
             s.SensorName.Equals("GPU Core", StringComparison.OrdinalIgnoreCase) && s.Unit == "MHz")?.Value;
         var cpuSub = (cpu?.Name ?? loc["Common.NotAvailable"]) + (m.CpuFrequencyMhz.HasValue ? $"  ·  {Format.FreqGhz(m.CpuFrequencyMhz)}" : "");
         var gpuSub = (gpu?.Name ?? loc["Common.NotAvailable"]) + (gpuClock.HasValue ? $"  ·  {Format.FreqMhz(gpuClock)}" : "");
 
+        var memType = inv.MemoryModules.FirstOrDefault()?.MemoryType;
+        var memDetail = $"{inv.MemoryModules.Count}×" + (string.IsNullOrEmpty(memType) ? "" : " " + memType);
         var memSubtitle = m.MemoryTotalBytes.HasValue
-            ? $"{Format.Bytes(m.MemoryTotalBytes)}  ({inv.MemoryModules.Count}×)"
+            ? $"{Format.Bytes(m.MemoryTotalBytes)}  ({memDetail})"
             : loc["Common.NotAvailable"];
 
         var cpuTemp = PreferNamedTemp(m.Sensors, HardwareClassifier.MatchesCpuHw, "CPU Package");
@@ -47,7 +54,7 @@ public partial class OverviewPage : UserControl
                 disk is null ? loc["Common.NotAvailable"] : $"{disk.Model}  {Format.Bytes(disk.CapacityBytes)}"),
             new(loc["Overview.Gpu"], Format.Pct(m.GpuUsagePercent), gpuSub),
             new(loc["Overview.Network"], $"{loc["Overview.Down"]} {Format.Bps(m.NetworkDownloadBps)}  {loc["Overview.Up"]} {Format.Bps(m.NetworkUploadBps)}",
-                net?.Name ?? loc["Common.NotAvailable"]),
+                netSub),
             new(loc["Overview.Battery"], $"{Format.Pct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "⚡" : "")}",
                 bat is null ? loc["Common.NotAvailable"] : BatterySubtitle(bat, loc)),
             new(loc["Overview.CpuTemp"], cpuTemp.HasValue ? $"{cpuTemp.Value:0.#} °C" : loc["Common.NotAvailable"]),
