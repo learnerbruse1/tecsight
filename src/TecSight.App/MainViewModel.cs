@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Reflection;
 using TecSight.App.Localization;
 using TecSight.App.Models;
@@ -9,8 +9,11 @@ namespace TecSight.App;
 
 public enum AppPage { Overview, Cpu, Memory, Disk, Gpu, Motherboard, Network, Battery, Sensors, Processes, OtherDevices, Peripherals }
 
-/// <summary>导航项。</summary>
-public sealed record NavEntry(AppPage Page, string Title);
+/// <summary>导航项。ToString 返回标题，便于无障碍（屏幕阅读器）读出干净的导航名。</summary>
+public sealed record NavEntry(AppPage Page, string Title)
+{
+    public override string ToString() => Title;
+}
 
 /// <summary>主视图模型：持有采集器、当前快照与历史，负责页面切换。</summary>
 public sealed class MainViewModel : INotifyPropertyChanged
