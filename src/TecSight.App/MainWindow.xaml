@@ -10,7 +10,7 @@
                 <TextBlock Text="{Binding Loc[App.Title]}" Foreground="{DynamicResource HeaderFgBrush}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="ThemeButton" Content="🌙" Click="ThemeButton_Click" Margin="0,0,10,0" Padding="10,4" ToolTip="{Binding Loc[Common.Theme]}"/>
-                    <Button Content="{Binding Loc[Common.RestartAsAdmin]}" Click="AdminRestart_Click" Margin="0,0,10,0" Padding="8,4"/>
+                    <Button x:Name="AdminRestartButton" Content="{Binding Loc[Common.RestartAsAdmin]}" Click="AdminRestart_Click" Margin="0,0,10,0" Padding="8,4"/>
                     <Button x:Name="LangButton" Content="{Binding Loc[Nav.LangToggle]}" Click="LangButton_Click" Margin="0,0,10,0" Padding="8,4"/>
                     <Menu VerticalAlignment="Center" Background="Transparent">
                         <MenuItem Header="{Binding Loc[Export.Menu]}" Padding="8,4">

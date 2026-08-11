@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Principal;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -38,6 +39,9 @@ public partial class MainWindow : Window
 
         // 主题按钮与已保存/已应用的主题保持一致
         ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
+
+        // 已提权时隐藏"以管理员重启"按钮（无意义）
+        AdminRestartButton.Visibility = IsElevated() ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
 
         ApplySavedWindowState();
 
@@ -259,6 +263,19 @@ public partial class MainWindow : Window
             AppSettings.SaveWindow(rb.Left, rb.Top, rb.Width, rb.Height, WindowState == WindowState.Maximized);
         }
         base.OnClosed(e);
+    }
+
+    private static bool IsElevated()
+    {
+        try
+        {
+            using var identity = WindowsIdentity.GetCurrent();
+            return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>恢复上次窗口位置/大小（防止还原到屏幕外）。</summary>
