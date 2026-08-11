@@ -29,32 +29,24 @@ public static class PeripheralProbe
     private static void ScanPnP(List<PeripheralDevice> list)
     {
         var seen = new HashSet<string>();
-        try
-        {
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID FROM Win32_PnPEntity");
-            foreach (var o in searcher.Get())
+        var devices = SafeQuery("root\\cimv2",
+            "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID FROM Win32_PnPEntity",
+            o =>
             {
                 var name = GetString(o, "Name");
-                if (string.IsNullOrWhiteSpace(name)) continue;
+                if (string.IsNullOrWhiteSpace(name)) return null;
                 var desc = GetString(o, "Description");
                 var mfr = GetString(o, "Manufacturer");
                 var cls = GetString(o, "PNPClass");
-                if (string.IsNullOrEmpty(cls) || !PeripheralClasses.Contains(cls)) continue; // 只留外设
-                if (cls == "HIDClass" && IsInternalHid(name, desc)) continue;               // 去掉系统 HID 内部件
+                if (string.IsNullOrEmpty(cls) || !PeripheralClasses.Contains(cls)) return null; // 只留外设
+                if (cls == "HIDClass" && IsInternalHid(name, desc)) return null;               // 去掉系统 HID 内部件
                 var cat = Classify(cls, name, desc);
                 var key = cat + "|" + name + "|" + mfr;
-                if (!seen.Add(key)) continue; // 去重
-                list.Add(new PeripheralDevice(
-                    name, mfr, desc, cat, cls, Detail: null,
-                    Status: GetString(o, "Status"),
-                    PnpDeviceId: GetString(o, "PNPDeviceID")));
-            }
-        }
-        catch
-        {
-            // 降级：忽略
-        }
+                if (!seen.Add(key)) return null; // 去重
+                return new PeripheralDevice(name, mfr, desc, cat, cls, Detail: null,
+                    Status: GetString(o, "Status"), PnpDeviceId: GetString(o, "PNPDeviceID"));
+            });
+        list.AddRange(devices.Where(d => d is not null)!);
     }
 
     private static bool IsInternalHid(string? name, string? desc)
@@ -68,54 +60,31 @@ public static class PeripheralProbe
 
     private static void ScanUsbDisks(List<PeripheralDevice> list)
     {
-        try
-        {
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT Model, InterfaceType, Size FROM Win32_DiskDrive WHERE InterfaceType='USB'");
-            foreach (var o in searcher.Get())
+        list.AddRange(SafeQuery("root\\cimv2",
+            "SELECT Model, Size FROM Win32_DiskDrive WHERE InterfaceType='USB'",
+            o =>
             {
-                var model = GetString(o, "Model");
                 var size = GetUInt64(o, "Size");
-                list.Add(new PeripheralDevice(
-                    model,
-                    Manufacturer: null,
-                    Description: "USB Disk",
-                    Category: "storage",
-                    PnpClass: "USB",
-                    Detail: size is ulong s && s > 0 ? FormatBytes(s) : null));
-            }
-        }
-        catch
-        {
-            // 降级
-        }
+                return new PeripheralDevice(GetString(o, "Model"), Manufacturer: null, Description: "USB Disk",
+                    Category: "storage", PnpClass: "USB",
+                    Detail: size is ulong s && s > 0 ? FormatBytes(s) : null);
+            }));
     }
 
     private static void ScanRemovableDisks(List<PeripheralDevice> list)
     {
-        try
-        {
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT DeviceID, Size, FreeSpace, FileSystem FROM Win32_LogicalDisk WHERE DriveType=2");
-            foreach (var o in searcher.Get())
+        list.AddRange(SafeQuery("root\\cimv2",
+            "SELECT DeviceID, Size, FreeSpace, FileSystem FROM Win32_LogicalDisk WHERE DriveType=2",
+            o =>
             {
                 var id = GetString(o, "DeviceID");
                 var size = GetUInt64(o, "Size");
                 var free = GetUInt64(o, "FreeSpace");
                 var fs = GetString(o, "FileSystem");
-                list.Add(new PeripheralDevice(
-                    id,
-                    Manufacturer: null,
-                    Description: "Removable Disk",
-                    Category: "storage",
-                    PnpClass: "LogicalDisk",
-                    Detail: $"{id}  {FormatBytes(size ?? 0)}  free {FormatBytes(free ?? 0)}  {fs}"));
-            }
-        }
-        catch
-        {
-            // 降级
-        }
+                return new PeripheralDevice(id, Manufacturer: null, Description: "Removable Disk",
+                    Category: "storage", PnpClass: "LogicalDisk",
+                    Detail: $"{id}  {FormatBytes(size ?? 0)}  free {FormatBytes(free ?? 0)}  {fs}");
+            }));
     }
 
     /// <summary>按 PNPClass/名称/描述推断设备类型键。</summary>
@@ -154,6 +123,19 @@ public static class PeripheralProbe
                 if (n.Contains("摄像头", StringComparison.OrdinalIgnoreCase) || (n.Contains("Camera", StringComparison.OrdinalIgnoreCase) && pnpClass is "Image" or null)) return "camera";
                 if (n.Contains("蓝牙", StringComparison.OrdinalIgnoreCase) || n.Contains("Bluetooth", StringComparison.OrdinalIgnoreCase)) return "bluetooth";
                 return "other";
+        }
+    }
+
+    private static List<T> SafeQuery<T>(string scope, string query, Func<ManagementBaseObject, T> map)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(scope, query);
+            return searcher.Get().Cast<ManagementBaseObject>().Select(map).ToList();
+        }
+        catch
+        {
+            return [];
         }
     }
 
