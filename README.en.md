@@ -19,6 +19,7 @@
 - Left navigation: Overview / CPU / Memory / Storage / GPU / Motherboard & OS / Network / Battery / Sensors / Processes / Other Devices / Peripherals
 - Overview page: 12 cards (hardware models + live usage/frequency/temperature/fan/uptime/updated-at)
 - Detail pages: full inventory + live values + history charts (1 hour)
+- Sensors page: all sensor readings, with an optional 'hide network filter noise' toggle (preference is remembered)
 - Processes page: top processes by CPU/memory (with PID) and total process count
 - Peripherals page: hotplug device classification (5 s refresh + manual refresh)
 - Other Devices page: displays (EDID) / audio / USB / keyboards / mice / printers
