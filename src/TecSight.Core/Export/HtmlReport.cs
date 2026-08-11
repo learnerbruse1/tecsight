@@ -90,20 +90,20 @@ public static class HtmlReport
     private static void Row(StringBuilder sb, string k, string c, string v) => sb.AppendLine($"<tr><td>{H(k)}</td><td>{H(c)}</td><td>{H(v)}</td></tr>");
 
     private static string H(string? v) => (v ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
-    private static string Pct(double? v) => v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "N/A";
-    private static string Mhz(double? v) => v.HasValue ? v.Value.ToString("0", CultureInfo.InvariantCulture) + " MHz" : "N/A";
-    private static string Bps(double? v) => v.HasValue ? (v.Value / 1048576.0).ToString("0.00", CultureInfo.InvariantCulture) + " MB/s" : "N/A";
-    private static string Gb(double? b) => b.HasValue ? (b.Value / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : "N/A";
-    private static string Gb(long? b) => b.HasValue ? (b.Value / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : "N/A";
+    private static string Pct(double? v) => FormatUtil.Pct(v, "N/A");
+    private static string Mhz(double? v) => FormatUtil.FreqMhz(v, "N/A");
+    private static string Bps(double? v) => FormatUtil.Bps(v, "N/A");
+    private static string Gb(double? b) => FormatUtil.Gb(b, "N/A");
+    private static string Gb(long? b) => FormatUtil.Gb(b, "N/A");
     private static string Gb(string? s) => long.TryParse(s, out var v) ? (v / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : "N/A";
-    private static string Wh(double? v) => v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) + " Wh" : "N/A";
+    private static string Wh(double? v) => FormatUtil.Wh(v, "N/A");
     private static string Up(double? s)
     {
         if (s is not double v) return "N/A";
         var t = TimeSpan.FromSeconds(v);
         return t.TotalDays >= 1 ? t.ToString(@"d\.hh\:mm") : t.ToString(@"hh\:mm");
     }
-    private static string LinkSpeed(long? bps) => bps switch { >= 1_000_000_000 => (bps.Value / 1_000_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + " Gbps", >= 1_000_000 => (bps.Value / 1_000_000.0).ToString("0", CultureInfo.InvariantCulture) + " Mbps", _ => "" };
+    private static string LinkSpeed(long? bps) => FormatUtil.LinkSpeed(bps, "");
     private static string HealthPct(BatteryInfo b) => b.FullChargeCapacityWh is double f && b.DesignedCapacityWh is double d && d > 0 ? Math.Min(100, f / d * 100).ToString("0.0", CultureInfo.InvariantCulture) + "%" : "N/A";
     private static string Hlth(StorageHealth? h) => h?.Status switch { HealthStatus.Good => "良好", HealthStatus.Warning => "注意", HealthStatus.Critical => "危险", _ => "N/A" };
 }

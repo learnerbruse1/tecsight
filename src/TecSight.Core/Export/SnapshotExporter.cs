@@ -132,20 +132,15 @@ public sealed class SnapshotExporter : ISnapshotExporter
         _ => "不可用 N/A",
     };
 
-    private static string FormatPct(double? v) => v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "不可用 N/A";
-    private static string FormatMhz(double? v) => v.HasValue ? v.Value.ToString("0", CultureInfo.InvariantCulture) + " MHz" : "不可用 N/A";
-    private static string FormatBytes(double? b) => b.HasValue ? (b.Value / (1024.0 * 1024.0 * 1024.0)).ToString("0.00", CultureInfo.InvariantCulture) + " GB" : "不可用 N/A";
-    private static string FormatBps(double? b) => b.HasValue ? (b.Value / (1024.0 * 1024.0)).ToString("0.00", CultureInfo.InvariantCulture) + " MB/s" : "不可用 N/A";
+    private static string FormatPct(double? v) => FormatUtil.Pct(v, "不可用 N/A");
+    private static string FormatMhz(double? v) => FormatUtil.FreqMhz(v, "不可用 N/A");
+    private static string FormatBytes(double? b) => FormatUtil.Bytes(b, "不可用 N/A");
+    private static string FormatBps(double? b) => FormatUtil.Bps(b, "不可用 N/A");
     private static string FormatUptime(double? sec)
     {
         if (sec is not double s || s < 0) return "不可用 N/A";
         var t = TimeSpan.FromSeconds(s);
         return t.TotalDays >= 1 ? t.ToString(@"d\.hh\:mm") : t.ToString(@"hh\:mm");
     }
-    private static string LinkSpeed(long? bps) => bps switch
-    {
-        >= 1_000_000_000 => (bps.Value / 1_000_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + " Gbps",
-        >= 1_000_000 => (bps.Value / 1_000_000.0).ToString("0", CultureInfo.InvariantCulture) + " Mbps",
-        _ => "",
-    };
+    private static string LinkSpeed(long? bps) => FormatUtil.LinkSpeed(bps, "");
 }
