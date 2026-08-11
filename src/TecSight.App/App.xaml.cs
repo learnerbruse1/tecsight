@@ -40,8 +40,22 @@ public partial class App : Application
         try
         {
             Directory.CreateDirectory(LogDir);
+            var path = Path.Combine(LogDir, "error.log");
             var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex?.GetType().Name}: {ex?.Message}\n{ex?.StackTrace}\n\n";
-            File.AppendAllText(Path.Combine(LogDir, "error.log"), line);
+            File.AppendAllText(path, line);
+            // 防止日志无限增长：超过 256KB 时截断为最近一半
+            var fi = new FileInfo(path);
+            if (fi.Length > 256 * 1024)
+            {
+                var keep = fi.Length - 128 * 1024;
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.ReadWrite);
+                fs.Seek(keep, SeekOrigin.Begin);
+                var buf = new byte[fi.Length - keep];
+                _ = fs.Read(buf, 0, buf.Length);
+                fs.SetLength(0);
+                fs.Seek(0, SeekOrigin.Begin);
+                fs.Write(buf, 0, buf.Length);
+            }
         }
         catch
         {

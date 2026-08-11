@@ -43,7 +43,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Common.Good", "良好", "Good");
         Both("Common.Warning", "注意", "Warning");
                 Both("Common.Critical", "危险", "Critical");
-        Both("Common.RestartAsAdmin", "以管理员权限重启", "Restart as admin");
+                Both("Common.RestartAsAdmin", "以管理员权限重启", "Restart as admin");
+        Both("Common.Theme", "切换深浅主题", "Toggle dark/light theme");
 
         Both("Export.Json", "导出 JSON", "Export JSON");
         Both("Export.Txt", "导出 TXT", "Export TXT");
