@@ -1,0 +1,15 @@
+# 统一换行符：文本文件按仓库规范（LF）处理，Windows 检出为 CRLF
+* text=auto
+
+*.cs text eol=crlf
+*.xaml text eol=crlf
+*.md text eol=crlf
+*.json text eol=lf
+*.ps1 text eol=crlf
+*.iss text eol=crlf
+*.slnx text eol=crlf
+*.csproj text eol=crlf
+*.ico binary
+*.png binary
+*.exe binary
+*.dll binary
