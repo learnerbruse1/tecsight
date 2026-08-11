@@ -2,27 +2,33 @@
 
 **English** | [简体中文](README.md)
 
-> A Windows desktop tool that shows your device's **complete hardware inventory** and **live usage/status**. Cross-hardware compatible, no install, no admin rights — sensors that cannot be read degrade gracefully to "N/A".
+> A Windows desktop tool that shows your device's **complete hardware inventory** and **live usage/status**. Cross-hardware compatible, no install, no admin rights; sensors that cannot be read degrade gracefully to "N/A".
 
 ## Features
 
-- **Hardware inventory**: full static info for CPU, memory, storage, GPU, motherboard/OS, network adapters, battery
-- **Live metrics**: CPU / memory / GPU / disk I/O / network throughput / battery, refreshed every second
-- **Sensors & health**: temperatures, fan speeds, voltages (LibreHardwareMonitor); disk SMART health
-- **History charts**: last-hour trends (ring buffer)
-- **Export**: one-click JSON / TXT / HTML snapshot, copy summary, compatibility report
-- **Peripherals**: hotplug devices auto-classified (storage/keyboard/mouse/camera/audio/Bluetooth/printer/USB)
-- **Bilingual UI + themes**: switchable and remembered
+- **Hardware inventory**: CPU (architecture/cache/socket/frequency/ID), memory (full SPD), storage (media/bus/firmware/health/SMART), GPU (VRAM/driver), motherboard & OS (BIOS/firmware/install info), network (speed/IP/gateway/DNS), battery (capacity/cycles/chemistry/voltage), displays (EDID), audio / USB / keyboards / mice / printers
+- **Live metrics**: CPU usage & live clock, memory, GPU usage & VRAM, disk I/O, network throughput, battery, uptime, process ranking — **1-second refresh** (overview shows last-updated time)
+- **Sensors & health**: temperatures / fan speeds / voltages (LibreHardwareMonitor); disk SMART attributes & health; sensors needing kernel drivers (CPU temp/fans) can be read via "Restart as admin"
+- **History charts**: last-hour trends (ring buffer, tiny memory footprint)
+- **Peripherals**: hotplug devices auto-classified (storage/keyboard/mouse/camera/audio/Bluetooth/printer/USB), 5 s refresh + manual refresh
+- **Export**: JSON / TXT / HTML / copy summary / compatibility report / history CSV
+- **Bilingual UI + themes**: switchable and remembered; window position/size/theme/language persisted
 
 ## UI
 
 - Left navigation: Overview / CPU / Memory / Storage / GPU / Motherboard & OS / Network / Battery / Sensors / Processes / Other Devices / Peripherals
-- Overview page: 12 cards (hardware models + live usage/frequency/temperature/fan/uptime)
-- Detail pages: full inventory (architecture/cache/SPD/SMART/health/voltage/chemistry) + live values + history charts
-- Peripherals page: hotplug devices auto-classified (5 s refresh + manual refresh)
+- Overview page: 12 cards (hardware models + live usage/frequency/temperature/fan/uptime/updated-at)
+- Detail pages: full inventory + live values + history charts (1 hour)
+- Processes page: top processes by CPU/memory (with PID) and total process count
+- Peripherals page: hotplug device classification (5 s refresh + manual refresh)
 - Other Devices page: displays (EDID) / audio / USB / keyboards / mice / printers
-- Bilingual UI + dark/light theme (remembered); copy summary / export JSON·TXT / compatibility report
-- No admin needed; sensors requiring kernel drivers (CPU temp/fans) can be read via "Restart as admin"
+- Top bar: theme toggle 🌙 / language toggle / export menu (JSON·TXT·HTML·history CSV·copy summary·compatibility report) / restart as admin
+- A prominent banner is shown on the overview when a data source (performance counters/WMI) is unavailable
+
+## Compatibility
+
+- Windows 10/11 (x64), self-contained single file, **no install, no admin** (admin mode optional for CPU temp/fans)
+- Degrades gracefully to "N/A" when sensors/data sources are unavailable; all values come from real system APIs (performance counters/WMI/native APIs/LibreHardwareMonitor) — no fabricated data
 
 ## Build
 
@@ -32,10 +38,10 @@ Requires [.NET 10 SDK](https://dotnet.microsoft.com/download) (Windows 10/11 x64
 dotnet build TecSight.slnx
 dotnet test TecSight.slnx
 dotnet publish src/TecSight.App -c Release -r win-x64 --self-contained true \
-  -p:PublishSingleFile=true -o publish
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
-Output: `publish/TecSight.App.exe` (self-contained single file, no install needed). You can also run `scripts/publish.ps1`.
+Output: `publish/TecSight.App.exe` (self-contained single file, no install needed). You can also run `scripts/publish.ps1`; build+test with `scripts/test.ps1`.
 
 **Installer** (requires [Inno Setup 6](https://jrsoftware.org/isdl.php)): `./scripts/build-installer.ps1` → produces `installer/Output/TecSight-Setup-1.1.0.exe` (bilingual wizard, Start Menu/desktop shortcuts, uninstaller, no admin needed).
 
@@ -54,4 +60,4 @@ Output: `publish/TecSight.App.exe` (self-contained single file, no install neede
 ## License
 
 - This project code: MIT (see [LICENSE](LICENSE))
-- Integrates [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) (MPL-2.0); its file header notices are retained
+- Integrates [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) (MPL-2.0); its file header notices are retained (see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md))
