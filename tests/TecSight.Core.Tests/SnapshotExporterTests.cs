@@ -123,3 +123,35 @@ public class SnapshotExporterNonFiniteTests
         Assert.Contains("OK sensor", json);
     }
 }
+public class SnapshotExporterEmptyTests
+{
+    private static Snapshot Empty() => new(
+        DateTimeOffset.MinValue,
+        new HardwareInventory(),
+        new LiveMetrics { Timestamp = DateTimeOffset.MinValue });
+
+    [Fact]
+    public void ExportTxt_HandlesEmptySnapshot()
+    {
+        var txt = new SnapshotExporter().ExportTxt(Empty());
+
+        Assert.Contains("快照", txt);
+    }
+
+    [Fact]
+    public void ExportHtml_HandlesEmptySnapshot()
+    {
+        var html = new SnapshotExporter().ExportHtml(Empty());
+
+        Assert.Contains("<!DOCTYPE html>", html);
+        Assert.Contains("</html>", html);
+    }
+
+    [Fact]
+    public void ExportJson_HandlesEmptySnapshot()
+    {
+        var json = new SnapshotExporter().ExportJson(Empty());
+
+        Assert.Contains("Inventory", json);
+    }
+}
