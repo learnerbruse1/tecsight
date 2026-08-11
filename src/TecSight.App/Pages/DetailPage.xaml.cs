@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows.Controls;
 using TecSight.App.Localization;
 using TecSight.App.Models;
@@ -99,13 +100,13 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.Model"], c.Name ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Cores"], c.CoreCount.ToString()));
                     rows.Add(new StaticRow(loc["Detail.Threads"], c.LogicalProcessorCount.ToString()));
-                    rows.Add(new StaticRow(loc["Detail.BaseClock"], c.BaseClockGhz.HasValue ? $"{c.BaseClockGhz.Value:0.0} GHz" : loc["Common.NotAvailable"]));
-                    rows.Add(new StaticRow(loc["Detail.CurrentClock"], c.CurrentClockMhz.HasValue ? $"{c.CurrentClockMhz.Value:0} MHz" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.BaseClock"], c.BaseClockGhz.HasValue ? $"{c.BaseClockGhz.Value.ToString("0.0", CultureInfo.InvariantCulture)} GHz" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.CurrentClock"], c.CurrentClockMhz.HasValue ? $"{c.CurrentClockMhz.Value.ToString("0", CultureInfo.InvariantCulture)} MHz" : loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Manufacturer"], c.Manufacturer ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Architecture"], c.Architecture ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Socket"], c.SocketDesignation ?? loc["Common.NotAvailable"]));
-                    rows.Add(new StaticRow(loc["Detail.L2Cache"], c.L2CacheKb.HasValue ? $"{c.L2CacheKb.Value / 1024.0:0.0} MB" : loc["Common.NotAvailable"]));
-                    rows.Add(new StaticRow(loc["Detail.L3Cache"], c.L3CacheKb.HasValue ? $"{c.L3CacheKb.Value / 1024.0:0.0} MB" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.L2Cache"], c.L2CacheKb.HasValue ? $"{(c.L2CacheKb.Value / 1024.0).ToString("0.0", CultureInfo.InvariantCulture)} MB" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.L3Cache"], c.L3CacheKb.HasValue ? $"{(c.L3CacheKb.Value / 1024.0).ToString("0.0", CultureInfo.InvariantCulture)} MB" : loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.ProcessorId"], c.ProcessorId ?? loc["Common.NotAvailable"]));
                 }
                 sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
@@ -265,17 +266,17 @@ public partial class DetailPage : UserControl
                 if (inv.Battery is { } b)
                 {
                     rows.Add(new StaticRow(loc["Detail.Model"], b.DeviceName ?? loc["Common.NotAvailable"]));
-                    rows.Add(new StaticRow(loc["Detail.DesignCapacity"], b.DesignedCapacityWh.HasValue ? $"{b.DesignedCapacityWh.Value:0.0} Wh" : loc["Common.NotAvailable"]));
-                    rows.Add(new StaticRow(loc["Detail.FullChargeCapacity"], b.FullChargeCapacityWh.HasValue ? $"{b.FullChargeCapacityWh.Value:0.0} Wh" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.DesignCapacity"], b.DesignedCapacityWh.HasValue ? $"{b.DesignedCapacityWh.Value.ToString("0.0", CultureInfo.InvariantCulture)} Wh" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.FullChargeCapacity"], b.FullChargeCapacityWh.HasValue ? $"{b.FullChargeCapacityWh.Value.ToString("0.0", CultureInfo.InvariantCulture)} Wh" : loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.CycleCount"], b.CycleCount.HasValue ? b.CycleCount.Value.ToString() : loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Chemistry"], ChemistryText(b.Chemistry, loc)));
-                    rows.Add(new StaticRow(loc["Detail.DesignVoltage"], b.DesignVoltageV.HasValue ? $"{b.DesignVoltageV.Value:0.00} V" : loc["Common.NotAvailable"]));
-                    rows.Add(new StaticRow(loc["Detail.CurrentVoltage"], b.CurrentVoltageV.HasValue ? $"{b.CurrentVoltageV.Value:0.00} V" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.DesignVoltage"], b.DesignVoltageV.HasValue ? $"{b.DesignVoltageV.Value.ToString("0.00", CultureInfo.InvariantCulture)} V" : loc["Common.NotAvailable"]));
+                    rows.Add(new StaticRow(loc["Detail.CurrentVoltage"], b.CurrentVoltageV.HasValue ? $"{b.CurrentVoltageV.Value.ToString("0.00", CultureInfo.InvariantCulture)} V" : loc["Common.NotAvailable"]));
                     if (b.FullChargeCapacityWh is double full && b.DesignedCapacityWh is double design && design > 0)
                     {
                         var health = Math.Min(100, full / design * 100);
-                        rows.Add(new StaticRow(loc["Detail.BatteryLoss"], $"{Math.Max(0, 100 - health):0.0}%"));
-                        rows.Add(new StaticRow(loc["Detail.Health"], $"{health:0.0}%"));
+                        rows.Add(new StaticRow(loc["Detail.BatteryLoss"], $"{Math.Max(0, 100 - health).ToString("0.0", CultureInfo.InvariantCulture)}%"));
+                        rows.Add(new StaticRow(loc["Detail.Health"], $"{health.ToString("0.0", CultureInfo.InvariantCulture)}%"));
                     }
                 }
                 else
@@ -397,7 +398,7 @@ public partial class DetailPage : UserControl
     private static string FormatSmartValue(SmartAttributeReading a)
     {
         var parts = new List<string>();
-        if (a.CurrentValue.HasValue) parts.Add($"V {a.CurrentValue.Value:0}");
+        if (a.CurrentValue.HasValue) parts.Add($"V {a.CurrentValue.Value.ToString("0", CultureInfo.InvariantCulture)}");
         if (a.Worst.HasValue) parts.Add($"W {a.Worst.Value}");
         if (a.Threshold > 0) parts.Add($"T {a.Threshold}");
         if (!string.IsNullOrEmpty(a.RawValue)) parts.Add($"Raw {a.RawValue}");
@@ -424,7 +425,7 @@ public partial class DetailPage : UserControl
     {
         var used = GpuSensorValue(vm, "GPU Memory Used");
         var total = GpuSensorValue(vm, "GPU Memory Total");
-        return used.HasValue && total is > 0 ? $"{used.Value / total.Value * 100:0.0}%" : "—";
+        return used.HasValue && total is > 0 ? $"{(used.Value / total.Value * 100).ToString("0.0", CultureInfo.InvariantCulture)}%" : "—";
     }
 
     private static string ChemistryText(string? code, LocalizationManager loc)

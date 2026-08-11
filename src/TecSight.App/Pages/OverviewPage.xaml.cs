@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows.Controls;
 using TecSight.App.Localization;
 using TecSight.App.Models;
@@ -73,7 +74,7 @@ public partial class OverviewPage : UserControl
                 bat is null ? loc["Common.NotAvailable"] : BatterySubtitle(bat, loc)),
             new(loc["Overview.CpuTemp"], cpuTemp.HasValue ? cpuTemp.Value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " °C" : loc["Common.NotAvailable"]),
             new(loc["Overview.GpuTemp"], gpuTemp.HasValue ? gpuTemp.Value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " °C" : loc["Common.NotAvailable"]),
-            new(loc["Overview.Fan"], fanRpm.HasValue ? $"{fanRpm.Value:0} RPM" : loc["Common.NotAvailable"]),
+            new(loc["Overview.Fan"], fanRpm.HasValue ? $"{fanRpm.Value.ToString("0", CultureInfo.InvariantCulture)} RPM" : loc["Common.NotAvailable"]),
             new(loc["Overview.Uptime"], Format.Uptime(m.SystemUptimeSeconds, loc.CurrentLanguage)),
             new(loc["Overview.Motherboard"],
                 inv.Motherboard is { } mb ? $"{mb.Manufacturer} {mb.Product}".Trim() : loc["Common.NotAvailable"],
@@ -126,7 +127,7 @@ public partial class OverviewPage : UserControl
         var text = b.DeviceName ?? loc["Common.NotAvailable"];
         if (b.FullChargeCapacityWh is double full && b.DesignedCapacityWh is double design && design > 0)
         {
-            text += $"  {loc["Overview.BatteryHealth"]} {Math.Min(100, full / design * 100):0}%";
+            text += $"  {loc["Overview.BatteryHealth"]} {Math.Min(100, full / design * 100).ToString("0", CultureInfo.InvariantCulture)}%";
         }
         return text;
     }

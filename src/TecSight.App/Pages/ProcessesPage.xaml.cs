@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows.Controls;
 using TecSight.Core.Models;
 
@@ -12,7 +13,7 @@ public partial class ProcessesPage : UserControl
     public void Update(MainViewModel vm)
     {
         ProcList.ItemsSource = vm.Snapshot.Metrics.Processes
-            .Select(p => new ProcRow(p.ProcessId is int pid ? $"{p.Name} ({pid})" : p.Name, p.CpuPercent.HasValue ? $"{p.CpuPercent.Value:0.0}%" : "…", Format.Bytes(p.WorkingSetBytes)))
+            .Select(p => new ProcRow(p.ProcessId is int pid ? $"{p.Name} ({pid})" : p.Name, p.CpuPercent.HasValue ? $"{p.CpuPercent.Value.ToString("0.0", CultureInfo.InvariantCulture)}%" : "…", Format.Bytes(p.WorkingSetBytes)))
             .ToList();
         TotalText.Text = $"{vm.Loc["Process.Total"]} {vm.Snapshot.Metrics.TotalProcessCount}";
     }

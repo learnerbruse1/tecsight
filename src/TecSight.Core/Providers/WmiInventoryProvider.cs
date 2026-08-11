@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Management;
 using TecSight.Core.Models;
 
@@ -75,7 +76,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 GetString(row, "SerialNumber"),
                 MemoryTypeName(GetInt(row, "SMBIOSMemoryType")),
                 GetString(row, "ConfiguredClockSpeed"),
-                GetInt(row, "ConfiguredVoltage") is int mv && mv > 0 ? $"{mv / 1000.0:0.000} V" : null,
+                GetInt(row, "ConfiguredVoltage") is int mv && mv > 0 ? $"{(mv / 1000.0).ToString("0.000", CultureInfo.InvariantCulture)} V" : null,
                 GetString(row, "DeviceLocator")));
     }
 

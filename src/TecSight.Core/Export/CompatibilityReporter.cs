@@ -47,12 +47,12 @@ public static class CompatibilityReporter
         sb.AppendLine();
         sb.AppendLine($"SMART attributes: {m.SmartAttributes.Count}");
         sb.AppendLine($"Process samples: {m.Processes.Count}");
-        sb.AppendLine($"GPU engines: {string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {e.Percent:0.0}%"))}");
+        sb.AppendLine($"GPU engines: {string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {e.Percent.ToString("0.0", CultureInfo.InvariantCulture)}%"))}");
 
         return sb.ToString();
     }
 
-    private static string? Pct(double? v) => v.HasValue ? v.Value.ToString("0.0") + "%" : "N/A";
+    private static string? Pct(double? v) => v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "N/A";
 
     private static void Row(StringBuilder sb, string label, int found, string? detail)
         => sb.AppendLine($"  [{(found > 0 ? "OK" : "--")}] {label}: {detail ?? "not detected"}");
