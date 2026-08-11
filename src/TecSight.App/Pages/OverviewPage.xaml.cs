@@ -15,6 +15,8 @@ public partial class OverviewPage : UserControl
         var inv = vm.Snapshot.Inventory;
         var loc = vm.Loc;
 
+        UpdatedText.Text = $"{loc["Overview.UpdatedAt"]} {m.Timestamp:HH:mm:ss}";
+
         var cpu = inv.Cpus.FirstOrDefault();
         var gpu = HardwareClassifier.PickPrimaryGpu(inv.Gpus);
         var disk = inv.Disks.FirstOrDefault();

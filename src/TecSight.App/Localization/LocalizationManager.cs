@@ -69,7 +69,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Overview.System", "系统", "System");
         Both("Overview.Down", "↓", "↓");
         Both("Overview.Up", "↑", "↑");
-                Both("Overview.Refreshing", "实时刷新中（1 秒）", "Live refresh (1s)");
+                        Both("Overview.Refreshing", "实时刷新中（1 秒）", "Live refresh (1s)");
+        Both("Overview.UpdatedAt", "更新于", "Updated at");
                 Both("Overview.CollectFailed", "⚠ 实时数据采集异常：性能计数器不可用（部分数据可能为 N/A）", "⚠ Live data unavailable: performance counters missing (some values may be N/A)");
         Both("Overview.InventoryFailed", "⚠ 硬件清单读取异常：WMI 不可用（部分硬件信息可能为 N/A）", "⚠ Hardware inventory unavailable: WMI missing (some info may be N/A)");
                 Both("Overview.BatteryHealth", "健康度", "Health");
