@@ -260,8 +260,9 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.CycleCount"], b.CycleCount.HasValue ? b.CycleCount.Value.ToString() : loc["Common.NotAvailable"]));
                     if (b.FullChargeCapacityWh is double full && b.DesignedCapacityWh is double design && design > 0)
                     {
-                        rows.Add(new StaticRow(loc["Detail.BatteryLoss"], $"{Math.Max(0, (1 - full / design) * 100):0.0}%"));
-                        rows.Add(new StaticRow(loc["Detail.Health"], $"{full / design * 100:0.0}%"));
+                        var health = Math.Min(100, full / design * 100);
+                        rows.Add(new StaticRow(loc["Detail.BatteryLoss"], $"{Math.Max(0, 100 - health):0.0}%"));
+                        rows.Add(new StaticRow(loc["Detail.Health"], $"{health:0.0}%"));
                     }
                 }
                 else
@@ -294,19 +295,21 @@ public partial class DetailPage : UserControl
                 sections.Add(new DetailSection(loc["Detail.Audio"], audioRows));
 
                 var usbRows = inv.UsbDevices
-                    .Select(u => (IDetailRow)new StaticRow(u.Name ?? loc["Common.NotAvailable"], u.Manufacturer ?? loc["Common.NotAvailable"]))
+                    .Select(u => (IDetailRow)new StaticRow(
+                        u.Name ?? loc["Common.NotAvailable"],
+                        $"{u.Manufacturer ?? ""}  {u.Status ?? ""}  {u.PnpDeviceId ?? ""}".Trim()))
                     .ToList();
                 if (usbRows.Count == 0) usbRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Usb"], usbRows));
 
                 var kbRows = inv.Keyboards
-                    .Select(k => (IDetailRow)new StaticRow(k.Name ?? loc["Common.NotAvailable"], k.Description ?? ""))
+                    .Select(k => (IDetailRow)new StaticRow(k.Name ?? loc["Common.NotAvailable"], $"{k.Description ?? ""}  {k.Status ?? ""}".Trim()))
                     .ToList();
                 if (kbRows.Count == 0) kbRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Keyboards"], kbRows));
 
                 var mouseRows = inv.PointingDevices
-                    .Select(m => (IDetailRow)new StaticRow(m.Name ?? loc["Common.NotAvailable"], m.Description ?? ""))
+                    .Select(m => (IDetailRow)new StaticRow(m.Name ?? loc["Common.NotAvailable"], $"{m.Description ?? ""}  {m.Status ?? ""}".Trim()))
                     .ToList();
                 if (mouseRows.Count == 0) mouseRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Mice"], mouseRows));

@@ -78,7 +78,7 @@ public partial class OverviewPage : UserControl
         var text = b.DeviceName ?? loc["Common.NotAvailable"];
         if (b.FullChargeCapacityWh is double full && b.DesignedCapacityWh is double design && design > 0)
         {
-            text += $"  {loc["Overview.BatteryHealth"]} {full / design * 100:0}%";
+            text += $"  {loc["Overview.BatteryHealth"]} {Math.Min(100, full / design * 100):0}%";
         }
         return text;
     }

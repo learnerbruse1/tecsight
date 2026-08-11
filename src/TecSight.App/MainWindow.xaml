@@ -22,7 +22,14 @@
                  ItemsSource="{Binding NavEntries}" SelectedValuePath="Page"
                  SelectedValue="{Binding CurrentPage, Mode=TwoWay}"
                  SelectionChanged="NavList_SelectionChanged"
-                 Background="{DynamicResource NavBgBrush}" BorderBrush="{DynamicResource CardBorderBrush}">
+                 Background="{DynamicResource NavBgBrush}" BorderBrush="{DynamicResource CardBorderBrush}"
+                 Foreground="{DynamicResource NavTextBrush}">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Foreground" Value="{DynamicResource NavTextBrush}"/>
+                    <Setter Property="Padding" Value="0"/>
+                </Style>
+            </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding Title}" Padding="8,6" FontSize="14"/>

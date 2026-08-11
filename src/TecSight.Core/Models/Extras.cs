@@ -18,11 +18,11 @@ public sealed record DisplayInfo(string? Name, string? Manufacturer, string? Pnp
 /// <summary>音频设备信息。</summary>
 public sealed record AudioDeviceInfo(string? Name, string? Manufacturer, string? Status);
 
-/// <summary>USB 设备信息。</summary>
-public sealed record UsbDeviceInfo(string? Name, string? Manufacturer);
+/// <summary>USB 设备信息（含状态与 PNP ID）。</summary>
+public sealed record UsbDeviceInfo(string? Name, string? Manufacturer, string? Status = null, string? PnpDeviceId = null);
 
-/// <summary>即插即用设备（键盘/鼠标等）。</summary>
-public sealed record PnPDeviceInfo(string? Name, string? Description);
+/// <summary>即插即用设备（键盘/鼠标等，含状态）。</summary>
+public sealed record PnPDeviceInfo(string? Name, string? Description, string? Status = null);
 
 /// <summary>打印机信息。</summary>
 public sealed record PrinterInfo(string? Name, string? DriverName, bool? IsDefault);

@@ -80,7 +80,9 @@ public partial class PeripheralsPage : UserControl
         if (!string.IsNullOrEmpty(d.Detail)) parts.Add(d.Detail!);
         if (!string.IsNullOrEmpty(d.Manufacturer)) parts.Add(d.Manufacturer!);
         if (!string.IsNullOrEmpty(d.Description) && !string.Equals(d.Description, d.Name, StringComparison.Ordinal)) parts.Add(d.Description!);
+        if (!string.IsNullOrEmpty(d.Status)) parts.Add("状态 " + d.Status);
         if (!string.IsNullOrEmpty(d.PnpClass)) parts.Add("[" + d.PnpClass + "]");
+        if (!string.IsNullOrEmpty(d.PnpDeviceId)) parts.Add(d.PnpDeviceId!);
         return string.Join("  ", parts);
     }
 }

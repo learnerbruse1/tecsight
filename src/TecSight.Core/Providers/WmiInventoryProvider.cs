@@ -247,20 +247,20 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static List<UsbDeviceInfo> QueryUsb()
     {
-        return SafeQuery("SELECT Name, Manufacturer FROM Win32_PnPEntity WHERE PNPClass='USB'",
-            row => new UsbDeviceInfo(GetString(row, "Name"), GetString(row, "Manufacturer")));
+        return SafeQuery("SELECT Name, Manufacturer, Status, PNPDeviceID FROM Win32_PnPEntity WHERE PNPClass='USB'",
+            row => new UsbDeviceInfo(GetString(row, "Name"), GetString(row, "Manufacturer"), GetString(row, "Status"), GetString(row, "PNPDeviceID")));
     }
 
     private static List<PnPDeviceInfo> QueryKeyboards()
     {
-        return SafeQuery("SELECT Name, Description FROM Win32_Keyboard",
-            row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description")));
+        return SafeQuery("SELECT Name, Description, Status FROM Win32_Keyboard",
+            row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description"), GetString(row, "Status")));
     }
 
     private static List<PnPDeviceInfo> QueryPointing()
     {
-        return SafeQuery("SELECT Name, Description FROM Win32_PointingDevice",
-            row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description")));
+        return SafeQuery("SELECT Name, Description, Status FROM Win32_PointingDevice",
+            row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description"), GetString(row, "Status")));
     }
 
     private static List<PrinterInfo> QueryPrinters()

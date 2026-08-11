@@ -31,7 +31,7 @@ public static class PeripheralProbe
         try
         {
             using var searcher = new ManagementObjectSearcher(
-                "SELECT Name, Description, Manufacturer, PNPClass FROM Win32_PnPEntity");
+                "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID FROM Win32_PnPEntity");
             foreach (var o in searcher.Get())
             {
                 var name = GetString(o, "Name");
@@ -44,7 +44,10 @@ public static class PeripheralProbe
                 var cat = Classify(cls, name, desc);
                 var key = cat + "|" + name + "|" + mfr;
                 if (!seen.Add(key)) continue; // 去重
-                list.Add(new PeripheralDevice(name, mfr, desc, cat, cls, Detail: null));
+                list.Add(new PeripheralDevice(
+                    name, mfr, desc, cat, cls, Detail: null,
+                    Status: GetString(o, "Status"),
+                    PnpDeviceId: GetString(o, "PNPDeviceID")));
             }
         }
         catch
