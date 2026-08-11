@@ -155,3 +155,49 @@ public class SnapshotCollectorSmartTests
         Assert.Empty(snapshot.Metrics.SmartAttributes);
     }
 }
+public class SnapshotCollectorNullReturnTests
+{
+    private sealed class NullMetricsProvider : ILiveMetricsProvider
+    {
+        public string Name => "null-metrics";
+        public LiveMetrics Capture() => null!;
+    }
+
+    private sealed class NullSensorProvider : ISensorProvider
+    {
+        public string Name => "null-sensors";
+        public IReadOnlyList<SensorReading> Capture() => null!;
+    }
+
+    private sealed class NullInventoryProvider : IHardwareInventoryProvider
+    {
+        public string Name => "null-inventory";
+        public HardwareInventory Capture() => null!;
+    }
+
+    [Fact]
+    public void Collect_WhenAllProvidersReturnNull_DoesNotCrashAndReturnsEmpty()
+    {
+        var collector = new SnapshotCollector(new NullInventoryProvider(), new NullMetricsProvider(), new NullSensorProvider());
+
+        var snapshot = collector.Collect();
+
+        Assert.NotNull(snapshot);
+        Assert.NotNull(snapshot.Inventory);
+        Assert.NotNull(snapshot.Metrics);
+        Assert.Empty(snapshot.Metrics.Sensors);
+        Assert.Empty(snapshot.Inventory.Cpus);
+    }
+
+    [Fact]
+    public void Collect_WhenSensorProviderReturnsNull_OthersIntact()
+    {
+        var collector = new SnapshotCollector(new SnapshotCollectorTests.FakeInventoryProvider(), new SnapshotCollectorTests.FakeMetricsProvider(), new NullSensorProvider());
+
+        var snapshot = collector.Collect();
+
+        Assert.Empty(snapshot.Metrics.Sensors);
+        Assert.Equal("FAKE-PC", snapshot.Inventory.ComputerName);
+        Assert.Equal(12.5, snapshot.Metrics.CpuUsagePercent);
+    }
+}
