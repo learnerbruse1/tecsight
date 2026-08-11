@@ -1,4 +1,4 @@
-using System.Management;
+﻿using System.Management;
 using TecSight.Core.Models;
 
 namespace TecSight.Core;
@@ -67,7 +67,7 @@ public static class PeripheralProbe
                 var size = GetUInt64(o, "Size");
                 return new PeripheralDevice(GetString(o, "Model"), Manufacturer: null, Description: "USB Disk",
                     Category: "storage", PnpClass: "USB",
-                    Detail: size is ulong s && s > 0 ? FormatUtil.Bytes(s, null) : null);
+                    Detail: size is ulong s && s > 0 ? FormatUtil.Bytes(s, "") : null);
             }));
     }
 
@@ -83,7 +83,7 @@ public static class PeripheralProbe
                 var fs = GetString(o, "FileSystem");
                 return new PeripheralDevice(id, Manufacturer: null, Description: "Removable Disk",
                     Category: "storage", PnpClass: "LogicalDisk",
-                    Detail: $"{id}  {FormatUtil.Bytes(size ?? 0, null)}  free {FormatUtil.Bytes(free ?? 0, null)}  {fs}");
+                    Detail: $"{id}  {FormatUtil.Bytes(size ?? 0, "")}  free {FormatUtil.Bytes(free ?? 0, "")}  {fs}");
             }));
     }
 
