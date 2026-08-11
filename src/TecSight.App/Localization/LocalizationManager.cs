@@ -153,7 +153,8 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.Physical", "物理设备", "Physical");
         Both("Detail.Charge", "电量", "Charge");
         Both("Detail.Charging", "充电中", "Charging");
-        Both("Detail.Computer", "计算机", "Computer");
+                Both("Detail.Computer", "计算机", "Computer");
+        Both("Detail.AppVersion", "软件版本", "Software Version");
         Both("Detail.Os", "操作系统", "Operating System");
         Both("Detail.Uptime", "运行时长", "Uptime");
         Both("Detail.DesignCapacity", "设计容量", "Design Capacity");

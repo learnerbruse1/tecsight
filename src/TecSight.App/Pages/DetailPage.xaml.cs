@@ -210,6 +210,7 @@ public partial class DetailPage : UserControl
             {
                 var rows = new List<IDetailRow>
                 {
+                    new StaticRow(loc["Detail.AppVersion"], vm.AppVersion),
                     new StaticRow(loc["Detail.Computer"], inv.ComputerName ?? loc["Common.NotAvailable"]),
                     new StaticRow(loc["Detail.Os"], $"{inv.OsCaption ?? ""} {inv.OsVersion ?? ""}".Trim()),
                     new StaticRow(loc["Detail.OsArch"], inv.OsArchitecture ?? loc["Common.NotAvailable"]),
