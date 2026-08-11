@@ -25,6 +25,8 @@ public partial class MainWindow : Window
     private readonly LibreHardwareSensorProvider _sensorProvider = new();
     private readonly object _collectGate = new();
     private bool _collecting;
+    private string _realTitle = "TecSight";
+    private DispatcherTimer? _transientTimer;
 
     public MainWindow()
     {
@@ -55,7 +57,8 @@ public partial class MainWindow : Window
 
         _vm = new MainViewModel(collector);
         DataContext = _vm;
-        Title = _vm.Loc["App.Title"];
+        _realTitle = _vm.Loc["App.Title"];
+        Title = _realTitle;
 
         PageHost.Content = _overview;
         _vm.CurrentPage = AppPage.Overview;
@@ -159,7 +162,8 @@ public partial class MainWindow : Window
     private void LangButton_Click(object sender, RoutedEventArgs e)
     {
         _vm.Loc.CurrentLanguage = _vm.Loc.CurrentLanguage == "zh" ? "en" : "zh";
-        Title = _vm.Loc["App.Title"];
+        _realTitle = _vm.Loc["App.Title"];
+        Title = _realTitle;
         _detail.InvalidateModel(); // 详情页静态标签按新语言重建
         UpdateCurrentPage();
         AppSettings.Save();
@@ -214,18 +218,21 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>在标题栏短暂显示状态提示后恢复。</summary>
+    /// <summary>在标题栏短暂显示状态提示后恢复真实标题（连续点击安全）。</summary>
     private void ShowTransientStatus(string message)
     {
-        var original = Title;
-        Title = message;
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
-        timer.Tick += (s, _) =>
+        if (_transientTimer is not null)
         {
-            Title = original;
-            ((DispatcherTimer)s).Stop();
+            _transientTimer.Stop();
+        }
+        Title = message;
+        _transientTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+        _transientTimer.Tick += (_, _) =>
+        {
+            Title = _realTitle;
+            _transientTimer!.Stop();
         };
-        timer.Start();
+        _transientTimer.Start();
     }
 
     private void ExportHtml_Click(object sender, RoutedEventArgs e)
