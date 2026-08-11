@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Security.Principal;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -65,9 +65,21 @@ public partial class MainWindow : Window
         _realTitle = _vm.Loc["App.Title"];
         Title = _realTitle;
 
-        PageHost.Content = _overview;
-        _vm.CurrentPage = AppPage.Overview;
-        _overview.Update(_vm); // 首帧即显示占位卡片，避免空白闪屏
+        // 恢复上次浏览的页面（与应用记住主题/语言/窗口位置一致）
+        var startPage = Enum.IsDefined(typeof(AppPage), AppSettings.LastPage) ? (AppPage)AppSettings.LastPage : AppPage.Overview;
+        PageHost.Content = startPage switch
+        {
+            AppPage.Processes => _processes,
+            AppPage.Peripherals => _peripherals,
+            AppPage.Overview => _overview,
+            _ => _detail,
+        };
+        if (startPage != AppPage.Overview && startPage != AppPage.Processes && startPage != AppPage.Peripherals)
+        {
+            _detail.SetCategory(startPage);
+        }
+        _vm.CurrentPage = startPage;
+        UpdateCurrentPage(); // 首帧即显示对应页面（数据不足时显示占位/N/A），避免空白闪屏
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += (_, _) => CollectAsync();
@@ -161,6 +173,8 @@ public partial class MainWindow : Window
         {
             _detail.SetCategory(page);
         }
+        AppSettings.SetLastPage((int)page);
+        AppSettings.Save();
         UpdateCurrentPage();
     }
 
