@@ -169,7 +169,10 @@ public partial class MainWindow : Window
         AppSettings.Save();
     }
 
-    private void ThemeButton_Click(object sender, RoutedEventArgs e)
+    private void ThemeButton_Click(object sender, RoutedEventArgs e) => ToggleTheme();
+
+    /// <summary>切换深色/浅色主题，并同步按钮图标与持久化设置（主题按钮 / F11 共用）。</summary>
+    private void ToggleTheme()
     {
         ThemeManager.Toggle();
         ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
@@ -297,6 +300,11 @@ public partial class MainWindow : Window
         else if (e.Key == Key.F5)
         {
             CollectAsync();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.F11)
+        {
+            ToggleTheme();
             e.Handled = true;
         }
         base.OnPreviewKeyDown(e);

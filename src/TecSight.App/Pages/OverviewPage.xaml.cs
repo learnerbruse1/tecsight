@@ -33,9 +33,11 @@ public partial class OverviewPage : UserControl
         var gpuSub = (gpu?.Name ?? loc["Common.NotAvailable"]) + (gpuClock.HasValue ? $"  ·  {Format.FreqMhz(gpuClock)}" : "");
 
         var memType = inv.MemoryModules.FirstOrDefault()?.MemoryType;
-        var memDetail = $"{inv.MemoryModules.Count}×" + (string.IsNullOrEmpty(memType) ? "" : " " + memType);
+        var memDetail = inv.MemoryModules.Count > 0
+            ? $"{inv.MemoryModules.Count}×" + (string.IsNullOrEmpty(memType) ? "" : " " + memType)
+            : null;
         var memSubtitle = m.MemoryTotalBytes.HasValue
-            ? $"{Format.Bytes(m.MemoryTotalBytes)}  ({memDetail})"
+            ? $"{Format.Bytes(m.MemoryTotalBytes)}{(memDetail is null ? "" : $"  ({memDetail})")}"
             : loc["Common.NotAvailable"];
 
         var cpuTemp = PreferNamedTemp(m.Sensors, HardwareClassifier.MatchesCpuHw, "CPU Package");
