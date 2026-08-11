@@ -19,33 +19,44 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
 {
     public string Name => "librehardwaremonitor";
 
-    private readonly Computer? _computer;
-
-    public LibreHardwareSensorProvider()
+    private readonly Computer _computer = new()
     {
-        var computer = new Computer
+        IsCpuEnabled = true,
+        IsGpuEnabled = true,
+        IsMotherboardEnabled = true,
+        IsStorageEnabled = true,
+        IsBatteryEnabled = true,
+        IsNetworkEnabled = true,
+    };
+    private readonly object _gate = new();
+    private bool _opened;
+    private bool _openFailed;
+
+    /// <summary>构造时不扫描硬件；Open()（可能较慢）延迟到首次采集，运行在后台线程，避免阻塞 UI 启动。</summary>
+    public LibreHardwareSensorProvider() { }
+
+    private void EnsureOpened()
+    {
+        if (_opened || _openFailed) return;
+        lock (_gate)
         {
-            IsCpuEnabled = true,
-            IsGpuEnabled = true,
-            IsMotherboardEnabled = true,
-            IsStorageEnabled = true,
-            IsBatteryEnabled = true,
-            IsNetworkEnabled = true,
-        };
-        try
-        {
-            computer.Open();
-            _computer = computer;
-        }
-        catch
-        {
-            _computer = null;
+            if (_opened || _openFailed) return;
+            try
+            {
+                _computer.Open();
+                _opened = true;
+            }
+            catch
+            {
+                _openFailed = true;
+            }
         }
     }
 
     public IReadOnlyList<SensorReading> Capture()
     {
-        if (_computer is null) return [];
+        EnsureOpened();
+        if (!_opened) return [];
         var result = new List<SensorReading>();
         try
         {
@@ -63,7 +74,8 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
 
     public IReadOnlyList<SmartAttributeReading> CaptureSmart()
     {
-        if (_computer is null) return [];
+        EnsureOpened();
+        if (!_opened) return [];
         var result = new List<SmartAttributeReading>();
         try
         {
@@ -223,7 +235,10 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
     {
         try
         {
-            _computer?.Close();
+            if (_opened)
+            {
+                _computer.Close();
+            }
         }
         catch
         {
