@@ -25,8 +25,14 @@ public static class CompatibilityReporter
         Row(sb, "Storage", inv.Disks.Count, inv.Disks.FirstOrDefault()?.Model);
         Row(sb, "GPU", inv.Gpus.Count, HardwareClassifier.PickPrimaryGpu(inv.Gpus)?.Name);
         Row(sb, "Motherboard", inv.Motherboard is null ? 0 : 1, inv.Motherboard?.Product);
+        Row(sb, "BIOS", inv.Bios is null ? 0 : 1, inv.Bios is { } bios ? $"{bios.Manufacturer} {bios.Version} {bios.ReleaseDate}".Trim() : null);
+        Row(sb, "Memory topology", inv.MemoryTopology is null ? 0 : 1, inv.MemoryTopology is { } mt ? $"{mt.UsedSlots}/{mt.TotalSlots} slots, {mt.ErrorCorrection}" : null);
+        Row(sb, "Logical disks", inv.LogicalDisks.Count, $"{inv.LogicalDisks.Count} volume(s)");
+        Row(sb, "System details", inv.SystemDetails is null ? 0 : 1, inv.SystemDetails is { } sd ? $"Serial={sd.SerialNumber}, SecureBoot={sd.SecureBoot}, TPM={sd.TpmVersion}, VBS={sd.VirtualizationBasedSecurityStatus}, HVCI={sd.MemoryIntegrityEnabled}, Hypervisor={sd.HypervisorPresent}" : null);
+        Row(sb, "Problem devices", inv.ProblemDevices.Count, $"{inv.ProblemDevices.Count} device(s)");
         Row(sb, "Network adapters", inv.NetworkAdapters.Count, $"{inv.NetworkAdapters.Count} adapter(s)");
         Row(sb, "IP configurations", inv.NetworkConfigurations.Count, $"{inv.NetworkConfigurations.Count} enabled");
+        Row(sb, "Wi-Fi", inv.WifiInterfaces.Count, inv.WifiInterfaces.FirstOrDefault() is { } w ? $"{w.Ssid ?? w.Name} {w.SignalPercent?.ToString(CultureInfo.InvariantCulture) ?? "?"}%" : null);
         Row(sb, "Battery", inv.Battery is null ? 0 : 1, inv.Battery is { } b ? $"{b.DeviceName}  {b.DesignedCapacityWh?.ToString("0.0", CultureInfo.InvariantCulture) ?? "N/A"}Wh/{b.FullChargeCapacityWh?.ToString("0.0", CultureInfo.InvariantCulture) ?? "N/A"}Wh  {b.CycleCount?.ToString() ?? "N/A"} cycles  {b.Chemistry ?? ""}".Trim() : null);
         sb.AppendLine();
 

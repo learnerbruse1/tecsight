@@ -57,4 +57,19 @@ public class HardwareClassifierTests
 
         Assert.Null(HardwareClassifier.PickPrimaryGpu(gpus));
     }
+
+    [Theory]
+    [InlineData("Realtek USB GbE Family Controller", false)]
+    [InlineData("ASIX AX88179 USB 3.0 to Gigabit Ethernet Adapter", false)]
+    [InlineData("Intel(R) Ethernet Controller I225-V", false)]
+    [InlineData("TAP-Windows Adapter V9", true)]
+    [InlineData("vEthernet (Default Switch)", true)]
+    [InlineData("Bluetooth Device (Personal Area Network)", true)]
+    [InlineData("Microsoft Wi-Fi Direct Virtual Adapter", true)]
+    [InlineData("WAN Miniport (IP)", true)]
+    [InlineData("Tailscale", true)]
+    public void IsVirtualNetworkAdapter_ClassifiesDocksAndVirtualAdapters(string name, bool expected)
+    {
+        Assert.Equal(expected, HardwareClassifier.IsVirtualNetworkAdapter(name));
+    }
 }

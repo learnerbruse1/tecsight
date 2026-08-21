@@ -30,7 +30,7 @@ public static class PeripheralProbe
     {
         var seen = new HashSet<string>();
         var devices = SafeQuery("root\\cimv2",
-            "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID FROM Win32_PnPEntity",
+            "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID, DriverProvider, DriverVersion, DriverDate, Service, DeviceID, ConfigManagerErrorCode, HardWareID FROM Win32_PnPEntity",
             o =>
             {
                 var name = GetString(o, "Name");
@@ -44,7 +44,15 @@ public static class PeripheralProbe
                 var key = cat + "|" + name + "|" + mfr;
                 if (!seen.Add(key)) return null; // 去重
                 return new PeripheralDevice(name, mfr, desc, cat, cls, Detail: null,
-                    Status: GetString(o, "Status"), PnpDeviceId: GetString(o, "PNPDeviceID"));
+                    Status: GetString(o, "Status"),
+                    PnpDeviceId: GetString(o, "PNPDeviceID"),
+                    DriverProvider: GetString(o, "DriverProvider"),
+                    DriverVersion: GetString(o, "DriverVersion"),
+                    DriverDate: FormatCimDate(GetString(o, "DriverDate")),
+                    Service: GetString(o, "Service"),
+                    DeviceId: GetString(o, "DeviceID"),
+                    ConfigManagerErrorCode: GetInt(o, "ConfigManagerErrorCode"),
+                    HardwareId: GetFirstString(o, "HardWareID"));
             });
         list.AddRange(devices.Where(d => d is not null)!);
     }
@@ -124,6 +132,26 @@ public static class PeripheralProbe
         }
     }
 
+    /// <summary>从 PNP 设备 ID 解析 USB VID/PID（如 USB\VID_1234&PID_5678\...）。</summary>
+    public static (string? Vid, string? Pid) ParseUsbVidPid(string? pnpDeviceId)
+    {
+        if (string.IsNullOrEmpty(pnpDeviceId)) return (null, null);
+        string? vid = null, pid = null;
+        var vidIdx = pnpDeviceId.IndexOf("VID_", StringComparison.OrdinalIgnoreCase);
+        if (vidIdx >= 0 && vidIdx + 8 <= pnpDeviceId.Length)
+            vid = pnpDeviceId.Substring(vidIdx + 4, 4);
+        var pidIdx = pnpDeviceId.IndexOf("PID_", StringComparison.OrdinalIgnoreCase);
+        if (pidIdx >= 0 && pidIdx + 8 <= pnpDeviceId.Length)
+            pid = pnpDeviceId.Substring(pidIdx + 4, 4);
+        return (vid, pid);
+    }
+
+    private static string? FormatCimDate(string? d)
+    {
+        if (string.IsNullOrEmpty(d) || d.Length < 8) return d;
+        return $"{d[..4]}-{d.Substring(4, 2)}-{d.Substring(6, 2)}";
+    }
+
     private static List<T> SafeQuery<T>(string scope, string query, Func<ManagementBaseObject, T> map)
     {
         try
@@ -141,6 +169,21 @@ public static class PeripheralProbe
     private static string? GetString(ManagementBaseObject o, string p)
     {
         try { return o[p]?.ToString(); } catch { return null; }
+    }
+
+    private static string? GetFirstString(ManagementBaseObject o, string p)
+    {
+        try
+        {
+            if (o[p] is string[] arr) return arr.FirstOrDefault(s => !string.IsNullOrEmpty(s));
+            return o[p]?.ToString();
+        }
+        catch { return null; }
+    }
+
+    private static int? GetInt(ManagementBaseObject o, string p)
+    {
+        try { return Convert.ToInt32(o[p]); } catch { return null; }
     }
 
     private static ulong? GetUInt64(ManagementBaseObject o, string p)

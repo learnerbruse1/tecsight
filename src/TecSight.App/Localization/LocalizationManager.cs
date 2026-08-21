@@ -30,6 +30,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Nav.Disk", "磁盘", "Storage");
         Both("Nav.Gpu", "显卡", "GPU");
         Both("Nav.Motherboard", "主板与系统", "Motherboard & OS");
+        Both("Nav.Bios", "BIOS", "BIOS");
         Both("Nav.Network", "网络", "Network");
         Both("Nav.Battery", "电池", "Battery");
         Both("Nav.Sensors", "传感器", "Sensors");
@@ -194,6 +195,117 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.Dns", "DNS", "DNS");
         Both("Detail.Yes", "是", "Yes");
         Both("Detail.No", "否", "No");
+
+        Both("Detail.BiosVersion", "BIOS 版本", "BIOS Version");
+        Both("Detail.SmbiosVersion", "SMBIOS 版本", "SMBIOS Version");
+        Both("Detail.Description", "描述", "Description");
+        Both("Detail.BuildNumber", "构建号", "Build Number");
+        Both("Detail.IdentificationCode", "标识码", "Identification Code");
+        Both("Detail.LanguageEdition", "语言版本", "Language Edition");
+        Both("Detail.SystemBiosVersion", "系统 BIOS 版本", "System BIOS Version");
+        Both("Detail.EcVersion", "EC 固件版本", "EC Firmware Version");
+        Both("Detail.PrimaryBios", "主 BIOS", "Primary BIOS");
+        Both("Detail.Status", "状态", "Status");
+        Both("Detail.BiosReadOnly", "本页面以只读方式读取 BIOS/UEFI 信息，不执行任何写入或修改操作。", "BIOS/UEFI information is read read-only; no writes or modifications are performed.");
+
+        Both("Detail.Interfaces", "物理接口", "Physical Interfaces");
+        Both("Detail.ConnectedDevices", "已连接设备", "Connected Devices");
+        Both("Detail.ConnectionStatus", "连接状态", "Connection Status");
+        Both("Detail.PnpDeviceId", "PNP ID", "PNP ID");
+        Both("Detail.Dhcp", "DHCP", "DHCP");
+        Both("Detail.NetStatus.0", "未连接", "Disconnected");
+        Both("Detail.NetStatus.1", "连接中", "Connecting");
+        Both("Detail.NetStatus.2", "已连接", "Connected");
+        Both("Detail.NetStatus.3", "断开中", "Disconnecting");
+        Both("Detail.NetStatus.4", "硬件不存在", "Hardware not present");
+        Both("Detail.NetStatus.5", "硬件已禁用", "Hardware disabled");
+        Both("Detail.NetStatus.6", "硬件故障", "Hardware malfunction");
+        Both("Detail.NetStatus.7", "媒体已断开", "Media disconnected");
+        Both("Detail.NetStatus.8", "认证中", "Authenticating");
+        Both("Detail.NetStatus.9", "认证成功", "Authentication succeeded");
+        Both("Detail.NetStatus.10", "认证失败", "Authentication failed");
+        Both("Detail.NetStatus.11", "地址无效", "Invalid address");
+        Both("Detail.NetStatus.12", "需要凭据", "Credentials required");
+        Both("Detail.NetStatus.Unknown", "未知", "Unknown");
+
+        Both("Detail.PhysicalCpuCount", "物理 CPU 数量", "Physical CPUs");
+        Both("Detail.Virtualization", "虚拟化 (VT-x/AMD-V)", "Virtualization (VT-x/AMD-V)");
+        Both("Detail.Enabled", "已启用", "Enabled");
+        Both("Detail.Disabled", "已禁用", "Disabled");
+
+        Both("Detail.FormFactor", "外形", "Form Factor");
+        Both("Detail.Ecc", "ECC", "ECC");
+        Both("Detail.MemoryTopology", "内存拓扑", "Memory Topology");
+        Both("Detail.TotalSlots", "插槽总数", "Total Slots");
+        Both("Detail.UsedSlots", "已用插槽", "Used Slots");
+        Both("Detail.MaxCapacity", "最大支持容量", "Max Capacity");
+        Both("Detail.ErrorCorrection", "错误校正", "Error Correction");
+
+        Both("Detail.Domain", "域 / 工作组", "Domain / Workgroup");
+        Both("Detail.PartOfDomain", "已加入域", "Domain Joined");
+        Both("Detail.TimeZone", "时区", "Time Zone");
+        Both("Detail.SecureBoot", "安全启动", "Secure Boot");
+        Both("Detail.Tpm", "TPM", "TPM");
+        Both("Detail.Hypervisor", "Hypervisor", "Hypervisor");
+        Both("Detail.SystemType", "系统类型", "System Type");
+
+        Both("Detail.DriverDate", "驱动日期", "Driver Date");
+        Both("Detail.Resolution", "分辨率", "Resolution");
+        Both("Detail.RefreshRate", "刷新率", "Refresh Rate");
+        Both("Detail.VideoMode", "视频模式", "Video Mode");
+        Both("Detail.VideoProcessor", "视频处理器", "Video Processor");
+        Both("Detail.VideoArchitecture", "视频架构", "Video Architecture");
+        Both("Detail.AdapterCompatibility", "兼容性", "Compatibility");
+
+        Both("Detail.LogicalDisks", "存储卷 / 分区", "Storage Volumes");
+        Both("Detail.FileSystem", "文件系统", "File System");
+        Both("Detail.TotalSpace", "总容量", "Total");
+        Both("Detail.FreeSpace", "可用", "Free");
+        Both("Detail.DriveType.Removable", "可移动", "Removable");
+        Both("Detail.DriveType.Fixed", "本地磁盘", "Fixed");
+        Both("Detail.DriveType.Network", "网络", "Network");
+        Both("Detail.DriveType.Optical", "光盘", "Optical");
+        Both("Detail.DriveType.Ram", "内存盘", "RAM Disk");
+        Both("Detail.DriveType.Unknown", "未知", "Unknown");
+
+        Both("Detail.Wifi", "Wi-Fi", "Wi-Fi");
+        Both("Detail.WifiState", "状态", "State");
+        Both("Detail.WifiSignal", "信号", "Signal");
+        Both("Detail.WifiChannel", "信道", "Channel");
+        Both("Detail.WifiRadioType", "无线电类型", "Radio Type");
+        Both("Detail.WifiAuth", "身份验证", "Authentication");
+        Both("Detail.WifiRx", "接收速率", "Receive Rate");
+        Both("Detail.WifiTx", "发送速率", "Transmit Rate");
+        Both("Detail.WifiMode", "连接模式", "Connection Mode");
+
+        Both("Peripheral.Unavailable", "无法获取信息", "Unavailable");
+        Both("Peripheral.Vid", "VID", "VID");
+        Both("Peripheral.Pid", "PID", "PID");
+        Both("Peripheral.DriverProvider", "驱动提供者", "Driver Provider");
+        Both("Peripheral.DriverVersion", "驱动版本", "Driver Version");
+        Both("Peripheral.Service", "服务", "Service");
+        Both("Peripheral.DeviceId", "设备 ID", "Device ID");
+
+        Both("Detail.Uuid", "UUID", "UUID");
+        Both("Detail.ProductName", "产品名称", "Product Name");
+        Both("Detail.ProductVersion", "产品版本", "Product Version");
+        Both("Detail.Vbs", "基于虚拟化的安全 (VBS)", "Virtualization-Based Security (VBS)");
+        Both("Detail.MemoryIntegrity", "内存完整性 (HVCI)", "Memory Integrity (HVCI)");
+        Both("Detail.CodeIntegrity", "代码完整性策略", "Code Integrity Policy");
+        Both("Detail.Vbs.0", "已关闭", "Off");
+        Both("Detail.Vbs.1", "已启用（未运行）", "Enabled (not running)");
+        Both("Detail.Vbs.2", "正在运行", "Running");
+        Both("Detail.CodeIntegrity.0", "已关闭", "Off");
+        Both("Detail.CodeIntegrity.1", "审核模式", "Audit Mode");
+        Both("Detail.CodeIntegrity.2", "强制执行", "Enforced");
+        Both("Detail.ProblemDevices", "问题设备", "Problem Devices");
+        Both("Detail.NoProblemDevices", "无问题设备", "No problem devices");
+        Both("Detail.DeviceError", "错误代码", "Error Code");
+        Both("Detail.Ipv4", "IPv4", "IPv4");
+        Both("Detail.Ipv6", "IPv6", "IPv6");
+        Both("Detail.Subnet", "子网掩码", "Subnet Mask");
+        Both("Detail.DhcpServer", "DHCP 服务器", "DHCP Server");
+        Both("Detail.DnsDomain", "DNS 后缀", "DNS Suffix");
 
         Both("Process.Name", "进程", "Process");
         Both("Process.Cpu", "CPU 占用", "CPU");

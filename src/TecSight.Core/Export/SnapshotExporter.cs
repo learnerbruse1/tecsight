@@ -55,21 +55,45 @@ public sealed class SnapshotExporter : ISnapshotExporter
         sb.AppendLine($"  安装 Installed: {inv.OsInstallDate ?? "不可用 N/A"}  上次启动 Last Boot: {inv.LastBootTime ?? "不可用 N/A"}");
         foreach (var c in inv.Cpus)
         {
-            sb.AppendLine($"  CPU: {c.Name ?? "不可用 N/A"}  {c.CoreCount}核/{c.LogicalProcessorCount}线程  {c.Architecture ?? ""}  L2={(c.L2CacheKb.HasValue ? $"{c.L2CacheKb}KB" : "N/A")} L3={(c.L3CacheKb.HasValue ? $"{c.L3CacheKb}KB" : "N/A")}".TrimEnd());
+            sb.AppendLine($"  CPU: {c.Name ?? "不可用 N/A"}  {c.CoreCount}核/{c.LogicalProcessorCount}线程  {c.Architecture ?? ""}  L2={(c.L2CacheKb.HasValue ? $"{c.L2CacheKb}KB" : "N/A")} L3={(c.L3CacheKb.HasValue ? $"{c.L3CacheKb}KB" : "N/A")}  虚拟化 Virtualization: {YesNo(c.VirtualizationFirmwareEnabled)}".TrimEnd());
         }
         sb.AppendLine($"  内存 Memory: {inv.MemoryModules.Count} 条 / {FormatBytes(inv.MemoryModules.Sum(x => long.TryParse(x.CapacityBytes, out var b) ? b : 0))}");
+        if (inv.MemoryTopology is { } mt)
+        {
+            sb.AppendLine($"  内存拓扑 Memory Topology: 插槽 Slots {mt.UsedSlots}/{mt.TotalSlots}  最大 Max {FormatBytes(mt.MaxCapacityBytes)}  ECC {mt.ErrorCorrection ?? "N/A"}".Trim());
+        }
         foreach (var d in inv.Disks)
         {
             sb.AppendLine($"  磁盘 Disk: {d.Model ?? "不可用 N/A"}  {FormatBytes(d.CapacityBytes)}  {d.MediaType ?? ""}  {d.BusType ?? ""}  FW {d.FirmwareVersion ?? "N/A"}  健康度 Health: {HealthText(d.Health)}".TrimEnd());
+        }
+        foreach (var ld in inv.LogicalDisks)
+        {
+            sb.AppendLine($"  分区 Volume: {ld.DeviceId ?? "N/A"}  {ld.VolumeName ?? ""}  {ld.FileSystem ?? ""}  总 Total {FormatBytes(ld.TotalBytes)}  可用 Free {FormatBytes(ld.FreeBytes)}  {DriveTypeName(ld.DriveType)}".Trim());
         }
         sb.AppendLine($"  GPU: {string.Join("; ", inv.Gpus.Select(g => g.Name ?? "不可用 N/A"))}");
         if (inv.Motherboard is { } mb)
         {
             sb.AppendLine($"  主板 Motherboard: {mb.Manufacturer ?? "N/A"} {mb.Product ?? ""}  BIOS {mb.BiosVersion ?? "N/A"}  {mb.SystemManufacturer ?? ""} {mb.SystemModel ?? ""}".TrimEnd());
         }
+        if (inv.Bios is { } bios)
+        {
+            sb.AppendLine($"  BIOS: {bios.Manufacturer ?? "N/A"} {bios.Name ?? ""} {bios.Version ?? ""} {bios.SmbiosVersion ?? ""} {bios.ReleaseDate ?? ""}  序列号 SN {bios.SerialNumber ?? "N/A"}".Trim());
+        }
+        if (inv.SystemDetails is { } sd)
+        {
+            sb.AppendLine($"  系统 System: 序列号 Serial {sd.SerialNumber ?? "N/A"}  UUID {sd.Uuid ?? "N/A"}  产品 Product {sd.ProductName ?? ""} {sd.ProductVersion ?? ""}  域 Domain {sd.Domain ?? "N/A"}  时区 TimeZone {sd.TimeZone ?? "N/A"}  安全启动 Secure Boot {YesNo(sd.SecureBoot)}  TPM {sd.TpmVersion ?? "N/A"}  VBS {VbsText(sd.VirtualizationBasedSecurityStatus)}  HVCI {YesNo(sd.MemoryIntegrityEnabled)}  Hypervisor {YesNo(sd.HypervisorPresent)}  类型 Type {sd.SystemType ?? "N/A"}".Trim());
+        }
+        foreach (var p in inv.ProblemDevices)
+        {
+            sb.AppendLine($"  问题设备 Problem: {p.Name ?? "N/A"}  错误 Error {p.ErrorCode?.ToString() ?? "?"}  {p.ErrorDescription ?? ""}  {p.Status ?? ""}".Trim());
+        }
         foreach (var n in inv.NetworkAdapters)
         {
-            sb.AppendLine($"  网卡 Network: {n.Name ?? "不可用 N/A"}  {n.MacAddress ?? "N/A"}  {LinkSpeed(n.SpeedBps)}  {n.AdapterType ?? ""}".TrimEnd());
+            sb.AppendLine($"  网卡 Network: {n.Name ?? "不可用 N/A"}  {n.MacAddress ?? "N/A"}  {LinkSpeed(n.SpeedBps)}  {n.AdapterType ?? ""}  {n.Manufacturer ?? ""}  驱动 Driver {n.DriverVersion ?? "N/A"} {n.DriverDate ?? ""}".TrimEnd());
+        }
+        foreach (var w in inv.WifiInterfaces)
+        {
+            sb.AppendLine($"  Wi-Fi: {w.Ssid ?? w.Name ?? "N/A"}  信号 Signal {w.SignalPercent?.ToString("0", CultureInfo.InvariantCulture) ?? "N/A"}%  信道 Channel {w.Channel?.ToString() ?? "N/A"}  {w.RadioType ?? ""}  {w.Authentication ?? ""}  收 Rx {w.ReceiveRateMbps?.ToString("0", CultureInfo.InvariantCulture) ?? "N/A"}Mbps  发 Tx {w.TransmitRateMbps?.ToString("0", CultureInfo.InvariantCulture) ?? "N/A"}Mbps".Trim());
         }
         if (inv.Battery is { } bat)
         {
@@ -143,4 +167,18 @@ public sealed class SnapshotExporter : ISnapshotExporter
         return t.TotalDays >= 1 ? t.ToString(@"d\.hh\:mm") : t.ToString(@"hh\:mm");
     }
     private static string LinkSpeed(long? bps) => FormatUtil.LinkSpeed(bps, "");
+
+    private static string YesNo(bool? b) => b == true ? "是 Yes" : b == false ? "否 No" : "N/A";
+
+    private static string VbsText(int? s) => s switch { 0 => "Off", 1 => "Enabled", 2 => "Running", _ => "N/A" };
+
+    private static string DriveTypeName(int? t) => t switch
+    {
+        2 => "可移动 Removable",
+        3 => "本地磁盘 Fixed",
+        4 => "网络 Network",
+        5 => "光盘 Optical",
+        6 => "内存盘 RAM Disk",
+        _ => "未知 Unknown",
+    };
 }

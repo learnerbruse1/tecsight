@@ -38,18 +38,49 @@ public static class HtmlReport
         sb.AppendLine("</table>");
 
         sb.AppendLine("<h2>硬件清单</h2>");
-        Section(sb, "CPU", ["型号", "核心", "线程", "架构", "插槽", "L2 缓存", "L3 缓存", "当前频率", "处理器 ID"],
-            inv.Cpus.Select(c => new[] { c.Name, c.CoreCount.ToString(), c.LogicalProcessorCount.ToString(), c.Architecture, c.SocketDesignation, (c.L2CacheKb.HasValue ? $"{c.L2CacheKb} KB" : "N/A"), (c.L3CacheKb.HasValue ? $"{c.L3CacheKb} KB" : "N/A"), (c.CurrentClockMhz.HasValue ? $"{c.CurrentClockMhz} MHz" : "N/A"), c.ProcessorId }).ToList());
+        Section(sb, "CPU", ["型号", "核心", "线程", "架构", "插槽", "L2 缓存", "L3 缓存", "当前频率", "处理器 ID", "虚拟化"],
+            inv.Cpus.Select(c => new[] { c.Name, c.CoreCount.ToString(), c.LogicalProcessorCount.ToString(), c.Architecture, c.SocketDesignation, (c.L2CacheKb.HasValue ? $"{c.L2CacheKb} KB" : "N/A"), (c.L3CacheKb.HasValue ? $"{c.L3CacheKb} KB" : "N/A"), (c.CurrentClockMhz.HasValue ? $"{c.CurrentClockMhz} MHz" : "N/A"), c.ProcessorId, Yn(c.VirtualizationFirmwareEnabled) }).ToList());
         Section(sb, "内存模块", ["容量", "频率", "类型", "实际频率", "电压", "制造商", "序列号", "插槽"],
             inv.MemoryModules.Select(x => new[] { Gb(x.CapacityBytes), $"{x.Speed} MHz", x.MemoryType, x.ConfiguredClockMhz, x.ConfiguredVoltageMv, x.Manufacturer, x.SerialNumber, x.DeviceLocator }).ToList());
+        if (inv.MemoryTopology is { } mt)
+            Section(sb, "内存拓扑", ["插槽总数", "已用插槽", "最大容量", "错误校正"],
+                [new[] { mt.TotalSlots?.ToString(), mt.UsedSlots?.ToString(), Gb(mt.MaxCapacityBytes), mt.ErrorCorrection }]);
         Section(sb, "磁盘", ["型号", "容量", "介质", "总线", "固件", "健康度"],
             inv.Disks.Select(d => new[] { d.Model, Gb(d.CapacityBytes), d.MediaType, d.BusType, d.FirmwareVersion, Hlth(d.Health) }).ToList());
-        Section(sb, "显卡", ["型号", "驱动"], inv.Gpus.Select(g => new[] { g.Name, g.DriverVersion }).ToList());
+        if (inv.LogicalDisks.Count > 0)
+            Section(sb, "存储卷 / 分区", ["盘符", "卷标", "文件系统", "总容量", "可用"],
+                inv.LogicalDisks.Select(d => new[] { d.DeviceId, d.VolumeName, d.FileSystem, Gb(d.TotalBytes), Gb(d.FreeBytes) }).ToList());
+        Section(sb, "显卡", ["型号", "驱动", "驱动日期", "分辨率", "刷新率"],
+            inv.Gpus.Select(g => new[] { g.Name, g.DriverVersion, g.DriverDate,
+                (g.CurrentHorizontalResolution.HasValue ? $"{g.CurrentHorizontalResolution} × {g.CurrentVerticalResolution}" : null),
+                (g.CurrentRefreshRate.HasValue ? g.CurrentRefreshRate + " Hz" : null) }).ToList());
         if (inv.Motherboard is { } mb)
             Section(sb, "主板 / 系统", ["制造商", "型号", "BIOS", "系统制造商", "系统型号"],
                 [new[] { mb.Manufacturer, mb.Product, mb.BiosVersion, mb.SystemManufacturer, mb.SystemModel }]);
-        Section(sb, "网络适配器", ["名称", "MAC", "速率", "类型"],
-            inv.NetworkAdapters.Select(n => new[] { n.Name, n.MacAddress, LinkSpeed(n.SpeedBps), n.AdapterType }).ToList());
+        if (inv.Bios is { } bios)
+            Section(sb, "BIOS", ["制造商", "名称", "版本", "SMBIOS", "日期", "序列号"],
+                [new[] { bios.Manufacturer, bios.Name, bios.Version, bios.SmbiosVersion, bios.ReleaseDate, bios.SerialNumber }]);
+        if (inv.SystemDetails is { } sd)
+        {
+            Section(sb, "系统标识", ["序列号", "UUID", "产品名称", "产品版本"],
+                [new[] { sd.SerialNumber, sd.Uuid, sd.ProductName, sd.ProductVersion }]);
+            Section(sb, "系统与安全", ["域 / 工作组", "时区", "安全启动", "TPM", "VBS", "内存完整性", "Hypervisor", "系统类型"],
+                [new[] { sd.Domain, sd.TimeZone, Yn(sd.SecureBoot), sd.TpmVersion, Vbs(sd.VirtualizationBasedSecurityStatus), Yn(sd.MemoryIntegrityEnabled), Yn(sd.HypervisorPresent), sd.SystemType }]);
+        }
+        if (inv.ProblemDevices.Count > 0)
+            Section(sb, "问题设备", ["名称", "错误代码", "说明", "状态"],
+                inv.ProblemDevices.Select(p => new[] { p.Name, p.ErrorCode?.ToString(), p.ErrorDescription, p.Status }).ToList());
+        Section(sb, "网络适配器", ["名称", "MAC", "速率", "类型", "制造商", "驱动"],
+            inv.NetworkAdapters.Select(n => new[] { n.Name, n.MacAddress, LinkSpeed(n.SpeedBps), n.AdapterType, n.Manufacturer, n.DriverVersion }).ToList());
+        if (inv.WifiInterfaces.Count > 0)
+            Section(sb, "Wi-Fi", ["SSID", "状态", "信号", "信道", "无线电类型", "身份验证", "接收速率", "发送速率"],
+                inv.WifiInterfaces.Select(w => new[] {
+                    w.Ssid ?? w.Name, w.State,
+                    w.SignalPercent.HasValue ? w.SignalPercent.Value.ToString("0", CultureInfo.InvariantCulture) + "%" : null,
+                    w.Channel?.ToString(), w.RadioType, w.Authentication,
+                    w.ReceiveRateMbps.HasValue ? w.ReceiveRateMbps.Value.ToString("0", CultureInfo.InvariantCulture) + " Mbps" : null,
+                    w.TransmitRateMbps.HasValue ? w.TransmitRateMbps.Value.ToString("0", CultureInfo.InvariantCulture) + " Mbps" : null
+                }).ToList());
 
         sb.AppendLine("<h2>运行指标</h2><table><tr><th>指标</th><th>值</th></tr>");
         Row(sb, "CPU 占用 / 频率", $"{Pct(m.CpuUsagePercent)} / {Mhz(m.CpuFrequencyMhz)}");
@@ -106,4 +137,6 @@ public static class HtmlReport
     private static string LinkSpeed(long? bps) => FormatUtil.LinkSpeed(bps, "");
     private static string HealthPct(BatteryInfo b) => b.FullChargeCapacityWh is double f && b.DesignedCapacityWh is double d && d > 0 ? Math.Min(100, f / d * 100).ToString("0.0", CultureInfo.InvariantCulture) + "%" : "N/A";
     private static string Hlth(StorageHealth? h) => h?.Status switch { HealthStatus.Good => "良好", HealthStatus.Warning => "注意", HealthStatus.Critical => "危险", _ => "N/A" };
+    private static string Yn(bool? b) => b == true ? "是" : b == false ? "否" : "N/A";
+    private static string Vbs(int? s) => s switch { 0 => "关闭", 1 => "已启用（未运行）", 2 => "运行中", _ => "N/A" };
 }

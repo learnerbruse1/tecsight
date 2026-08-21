@@ -11,4 +11,11 @@ public sealed record PeripheralDevice(
     string? PnpClass,
     string? Detail,
     string? Status = null,
-    string? PnpDeviceId = null);
+    string? PnpDeviceId = null,
+    string? DriverProvider = null,
+    string? DriverVersion = null,
+    string? DriverDate = null,
+    string? Service = null,
+    string? DeviceId = null,
+    int? ConfigManagerErrorCode = null,
+    string? HardwareId = null);

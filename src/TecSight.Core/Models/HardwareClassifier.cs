@@ -31,4 +31,22 @@ public static class HardwareClassifier
         || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
         || name.Contains("Graphics", StringComparison.OrdinalIgnoreCase)
         || name.Contains("Arc", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 判断是否为虚拟/软件网络适配器（VPN、TAP、虚拟交换机、蓝牙 PAN、NDIS 过滤器等）。
+    /// 用于把"物理接口"与虚拟/软件接口区分开，避免把扩展坞等真实网卡误过滤掉。
+    /// </summary>
+    public static bool IsVirtualNetworkAdapter(string? name, string? adapterType = null)
+    {
+        var text = (name ?? "") + " " + (adapterType ?? "");
+        return ContainsAny(text,
+            "TAP", "Tunnel", "Wintun", "Virtual", "vEthernet", "Loopback", "Remote NDIS",
+            "Hyper-V", "Wi-Fi Direct", "WAN Miniport", "Kernel Debug", "Bluetooth",
+            "VMware", "VirtualBox", "Hamachi", "ZeroTier", "Tailscale", "WireGuard", "UU",
+            "Npcap", "NDIS", "LightWeight Filter", "WFP", "QoS Packet Scheduler", "Leigod",
+            "Native WiFi Filter", "Virtual WiFi Filter");
+    }
+
+    private static bool ContainsAny(string text, params string[] markers) =>
+        markers.Any(m => text.Contains(m, StringComparison.OrdinalIgnoreCase));
 }

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Management;
+using System.Runtime.InteropServices;
 using TecSight.Core.Models;
 
 namespace TecSight.Core;
@@ -22,11 +23,17 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         inv.FirmwareType = SafeString(() => Environment.GetEnvironmentVariable("firmware_type")?.Trim() is { Length: > 0 } f ? f : null);
         inv.Cpus = QueryCpus();
         inv.MemoryModules = QueryMemory();
+        inv.MemoryTopology = QueryMemoryTopology(inv.MemoryModules.Count);
         inv.Disks = QueryDisks();
         inv.Gpus = QueryGpus();
         inv.Motherboard = QueryMotherboard();
+        inv.Bios = QueryBios();
         inv.NetworkAdapters = QueryNetwork();
         inv.NetworkConfigurations = QueryNetworkConfig();
+        inv.LogicalDisks = QueryLogicalDisks();
+        inv.SystemDetails = QuerySystemDetails();
+        inv.WifiInterfaces = WlanInfoProvider.Scan();
+        inv.ProblemDevices = QueryProblemDevices();
         inv.Battery = QueryBattery();
         inv.Displays = QueryDisplays();
         inv.AudioDevices = QueryAudio();
@@ -40,7 +47,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     private static List<CpuInfo> QueryCpus()
     {
         return SafeQuery(
-            "SELECT Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed, Manufacturer, Architecture, SocketDesignation, L2CacheSize, L3CacheSize, CurrentClockSpeed, ProcessorId FROM Win32_Processor",
+            "SELECT Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed, Manufacturer, Architecture, SocketDesignation, L2CacheSize, L3CacheSize, CurrentClockSpeed, ProcessorId, VirtualizationFirmwareEnabled, VMMonitorModeExtensions FROM Win32_Processor",
             row => new CpuInfo(
                 GetString(row, "Name"),
                 GetInt(row, "NumberOfCores") ?? 0,
@@ -52,7 +59,9 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 GetInt(row, "L2CacheSize"),
                 GetInt(row, "L3CacheSize"),
                 GetInt(row, "CurrentClockSpeed"),
-                GetString(row, "ProcessorId")));
+                GetString(row, "ProcessorId"),
+                GetBool(row, "VirtualizationFirmwareEnabled"),
+                GetBool(row, "VMMonitorModeExtensions")));
     }
 
     private static string? ArchitectureName(int? a) => a switch
@@ -67,7 +76,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     private static List<MemoryModuleInfo> QueryMemory()
     {
         return SafeQuery(
-            "SELECT Capacity, Speed, Manufacturer, PartNumber, SerialNumber, SMBIOSMemoryType, ConfiguredClockSpeed, ConfiguredVoltage, DeviceLocator FROM Win32_PhysicalMemory",
+            "SELECT Capacity, Speed, Manufacturer, PartNumber, SerialNumber, SMBIOSMemoryType, ConfiguredClockSpeed, ConfiguredVoltage, DeviceLocator, FormFactor, DataWidth, TotalWidth FROM Win32_PhysicalMemory",
             row => new MemoryModuleInfo(
                 GetString(row, "Capacity"),
                 GetString(row, "Speed"),
@@ -77,8 +86,169 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 MemoryTypeName(GetInt(row, "SMBIOSMemoryType")),
                 GetString(row, "ConfiguredClockSpeed"),
                 GetInt(row, "ConfiguredVoltage") is int mv && mv > 0 ? $"{(mv / 1000.0).ToString("0.000", CultureInfo.InvariantCulture)} V" : null,
-                GetString(row, "DeviceLocator")));
+                GetString(row, "DeviceLocator"),
+                FormFactorName(GetInt(row, "FormFactor")),
+                IsEcc(GetInt(row, "DataWidth"), GetInt(row, "TotalWidth"))));
     }
+
+    private static bool? IsEcc(int? dataWidth, int? totalWidth) =>
+        dataWidth is int d && totalWidth is int t ? t > d : null;
+
+    private static string? FormFactorName(int? f) => f switch
+    {
+        8 => "DIMM",
+        12 => "SODIMM",
+        24 => "FB-DIMM",
+        _ => f.HasValue ? $"FF {f}" : null,
+    };
+
+    private static MemoryTopologyInfo? QueryMemoryTopology(int usedSlots)
+    {
+        var arr = SafeQuery(
+            "SELECT MemoryDevices, MaxCapacity, MemoryErrorCorrection FROM Win32_PhysicalMemoryArray",
+            row => new
+            {
+                Slots = GetInt(row, "MemoryDevices"),
+                MaxKb = GetInt(row, "MaxCapacity"),
+                Ecc = GetInt(row, "MemoryErrorCorrection"),
+            }).FirstOrDefault();
+        if (arr is null) return null;
+        long? maxBytes = arr.MaxKb is int kb && kb > 0 ? kb * 1024L : null;
+        return new MemoryTopologyInfo(arr.Slots, usedSlots, maxBytes, ErrorCorrectionName(arr.Ecc));
+    }
+
+    private static string? ErrorCorrectionName(int? e) => e switch
+    {
+        1 => "Other",
+        2 => "Unknown",
+        3 => "None",
+        4 => "Parity",
+        5 => "Single-bit ECC",
+        6 => "Multi-bit ECC",
+        7 => "CRC",
+        _ => e.HasValue ? $"ECC {e}" : null,
+    };
+
+    private static List<LogicalDiskInfo> QueryLogicalDisks()
+    {
+        return SafeQuery(
+            "SELECT DeviceID, VolumeName, FileSystem, Size, FreeSpace, DriveType FROM Win32_LogicalDisk",
+            row => new LogicalDiskInfo(
+                GetString(row, "DeviceID"),
+                GetString(row, "VolumeName"),
+                GetString(row, "FileSystem"),
+                GetLong(row, "Size"),
+                GetLong(row, "FreeSpace"),
+                GetInt(row, "DriveType")));
+    }
+
+    private static SystemDetails? QuerySystemDetails()
+    {
+        var sys = SafeQuery(
+            "SELECT Domain, PartOfDomain, HypervisorPresent, SystemType FROM Win32_ComputerSystem",
+            row => new
+            {
+                Domain = GetString(row, "Domain"),
+                PartOfDomain = GetBool(row, "PartOfDomain"),
+                Hypervisor = GetBool(row, "HypervisorPresent"),
+                SystemType = GetString(row, "SystemType"),
+            }).FirstOrDefault();
+        if (sys is null) return null;
+        var tz = QueryFirstString("SELECT StandardName FROM Win32_TimeZone", "StandardName");
+        var product = SafeQuery(
+            "SELECT IdentifyingNumber, UUID, Name, Version FROM Win32_ComputerSystemProduct",
+            row => new
+            {
+                Serial = GetString(row, "IdentifyingNumber"),
+                Uuid = GetString(row, "UUID"),
+                ProductName = GetString(row, "Name"),
+                ProductVersion = GetString(row, "Version"),
+            }).FirstOrDefault();
+        var dg = QueryDeviceGuard();
+        return new SystemDetails(
+            sys.Domain,
+            sys.PartOfDomain,
+            tz,
+            QuerySecureBoot(),
+            QueryTpmVersion(),
+            sys.Hypervisor,
+            sys.SystemType,
+            product?.Serial,
+            product?.Uuid,
+            product?.ProductName,
+            product?.ProductVersion,
+            dg?.VbsStatus,
+            dg?.MemoryIntegrity,
+            dg?.CodeIntegrityStatus);
+    }
+
+    /// <summary>读取基于虚拟化的安全（VBS）/ 内存完整性（HVCI）状态（可能因权限或硬件不支持而降级为 null）。</summary>
+    private static (int? VbsStatus, bool? MemoryIntegrity, int? CodeIntegrityStatus)? QueryDeviceGuard()
+    {
+        var dg = SafeQuery(
+                "root\\Microsoft\\Windows\\DeviceGuard",
+                "SELECT VirtualizationBasedSecurityStatus, SecurityServicesRunning, CodeIntegrityPolicyEnforcementStatus FROM Win32_DeviceGuard",
+                r => new
+                {
+                    Vbs = GetInt(r, "VirtualizationBasedSecurityStatus"),
+                    Mi = ContainsInt(r, "SecurityServicesRunning", 2),
+                    Ci = GetInt(r, "CodeIntegrityPolicyEnforcementStatus"),
+                })
+            .FirstOrDefault();
+        return dg is null ? null : (dg.Vbs, dg.Mi, dg.Ci);
+    }
+
+    private static bool ContainsInt(ManagementBaseObject o, string p, int value)
+    {
+        try
+        {
+            if (o[p] is not Array arr) return false;
+            foreach (var item in arr)
+            {
+                if (Convert.ToInt32(item) == value) return true;
+            }
+        }
+        catch
+        {
+            // 忽略
+        }
+        return false;
+    }
+
+    private static bool? QuerySecureBoot()
+    {
+        try
+        {
+            var buffer = new byte[1];
+            var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+            try
+            {
+                var size = (uint)buffer.Length;
+                var ret = GetFirmwareEnvironmentVariable("SecureBoot", "{8be4df61-93ca-11d2-aa0d-00e098032b8c}", handle.AddrOfPinnedObject(), size);
+                return ret > 0 ? buffer[0] != 0 : null;
+            }
+            finally
+            {
+                handle.Free();
+            }
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? QueryTpmVersion()
+    {
+        return SafeQuery(
+                "root\\cimv2\\Security\\MicrosoftTpm",
+                "SELECT SpecVersion, ManufacturerVersion FROM Win32_Tpm",
+                row => (GetString(row, "SpecVersion") ?? GetString(row, "ManufacturerVersion"))?.Trim())
+            .FirstOrDefault();
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetFirmwareEnvironmentVariable(string lpName, string lpGuid, IntPtr pBuffer, uint nSize);
 
     private static string? MemoryTypeName(int? t) => t switch
     {
@@ -146,8 +316,20 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static List<GpuInfo> QueryGpus()
     {
-        return SafeQuery("SELECT Name, AdapterRAM, DriverVersion FROM Win32_VideoController",
-            row => new GpuInfo(GetString(row, "Name"), GetLong(row, "AdapterRAM"), GetString(row, "DriverVersion")));
+        return SafeQuery(
+            "SELECT Name, AdapterRAM, DriverVersion, DriverDate, CurrentHorizontalResolution, CurrentVerticalResolution, CurrentRefreshRate, VideoModeDescription, AdapterCompatibility, VideoProcessor, VideoArchitecture FROM Win32_VideoController",
+            row => new GpuInfo(
+                GetString(row, "Name"),
+                GetLong(row, "AdapterRAM"),
+                GetString(row, "DriverVersion"),
+                FormatCimDate(GetString(row, "DriverDate")),
+                GetInt(row, "CurrentHorizontalResolution"),
+                GetInt(row, "CurrentVerticalResolution"),
+                GetInt(row, "CurrentRefreshRate"),
+                GetString(row, "VideoModeDescription"),
+                GetString(row, "AdapterCompatibility"),
+                GetString(row, "VideoProcessor"),
+                GetString(row, "VideoArchitecture")));
     }
 
     private static MotherboardInfo? QueryMotherboard()
@@ -169,6 +351,31 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         };
     }
 
+    /// <summary>BIOS / UEFI 信息：以只读方式查询 Win32_BIOS，不执行任何写入操作。</summary>
+    private static BiosInfo? QueryBios()
+    {
+        return SafeQuery(
+            "SELECT Manufacturer, Name, Version, SMBIOSBIOSVersion, ReleaseDate, SerialNumber, Description, BuildNumber, IdentificationCode, LanguageEdition, EmbeddedControllerMajorVersion, EmbeddedControllerMinorVersion, SystemBiosMajorVersion, SystemBiosMinorVersion, PrimaryBIOS, Status FROM Win32_BIOS",
+            row => new BiosInfo(
+                GetString(row, "Manufacturer"),
+                GetString(row, "Name"),
+                GetString(row, "Version"),
+                GetString(row, "SMBIOSBIOSVersion"),
+                FormatBiosDate(GetString(row, "ReleaseDate")),
+                GetString(row, "SerialNumber"),
+                GetString(row, "Description"),
+                GetString(row, "BuildNumber"),
+                GetString(row, "IdentificationCode"),
+                GetString(row, "LanguageEdition"),
+                GetInt(row, "EmbeddedControllerMajorVersion"),
+                GetInt(row, "EmbeddedControllerMinorVersion"),
+                GetInt(row, "SystemBiosMajorVersion"),
+                GetInt(row, "SystemBiosMinorVersion"),
+                GetBool(row, "PrimaryBIOS"),
+                GetString(row, "Status")))
+            .FirstOrDefault();
+    }
+
     private static string? FormatBiosDate(string? d)
     {
         if (string.IsNullOrEmpty(d) || d.Length < 8) return d;
@@ -177,19 +384,42 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static List<NetworkAdapterInfo> QueryNetwork()
     {
-        var all = SafeQuery(
-            "SELECT Name, MACAddress, PhysicalAdapter, NetConnectionStatus, Speed, AdapterType FROM Win32_NetworkAdapter",
+        var adapters = SafeQuery(
+            "SELECT Name, MACAddress, PhysicalAdapter, NetConnectionStatus, Speed, AdapterType, Manufacturer, PNPDeviceID, Index, NetConnectionID FROM Win32_NetworkAdapter",
+            row => new NetworkAdapterInfo(
+                GetString(row, "Name"),
+                GetString(row, "MACAddress"),
+                GetBool(row, "PhysicalAdapter"),
+                NormalizeLinkSpeed(GetLong(row, "Speed")),
+                GetString(row, "AdapterType"),
+                GetString(row, "Manufacturer"),
+                GetString(row, "PNPDeviceID"),
+                GetInt(row, "NetConnectionStatus"),
+                GetInt(row, "Index"),
+                GetString(row, "NetConnectionID")));
+
+        // 驱动版本/日期来自 Win32_PnPEntity（Net 类），按 PNPDeviceID 关联
+        var pnp = SafeQuery(
+            "SELECT DeviceID, DriverVersion, DriverDate FROM Win32_PnPEntity WHERE PNPClass='Net'",
             row => new
             {
-                Info = new NetworkAdapterInfo(GetString(row, "Name"), GetString(row, "MACAddress"), GetBool(row, "PhysicalAdapter"),
-                    NormalizeLinkSpeed(GetLong(row, "Speed")), GetString(row, "AdapterType")),
-                Status = GetInt(row, "NetConnectionStatus"),
-                Physical = GetBool(row, "PhysicalAdapter"),
-            });
-        return all
-            .Where(x => x.Physical == true || x.Status.HasValue)
-            .Select(x => x.Info)
-            .Distinct()
+                Id = GetString(row, "DeviceID"),
+                Ver = GetString(row, "DriverVersion"),
+                Date = GetString(row, "DriverDate"),
+            }).ToLookup(x => x.Id ?? "", StringComparer.OrdinalIgnoreCase);
+
+        return adapters
+            .Where(x => x.IsPhysical == true
+                || (x.NetConnectionStatus.HasValue && !HardwareClassifier.IsVirtualNetworkAdapter(x.Name, x.AdapterType)))
+            .Select(x =>
+            {
+                var p = x.PnpDeviceId is { Length: > 0 } id ? pnp[id].FirstOrDefault() : null;
+                return x with
+                {
+                    DriverVersion = p?.Ver,
+                    DriverDate = FormatCimDate(p?.Date),
+                };
+            })
             .ToList();
     }
 
@@ -200,12 +430,17 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     private static List<NetworkConfigInfo> QueryNetworkConfig()
     {
         return SafeQuery(
-            "SELECT Description, IPAddress, DefaultIPGateway, DNSServerSearchOrder FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled=TRUE",
+            "SELECT Description, Index, DHCPEnabled, IPAddress, DefaultIPGateway, DNSServerSearchOrder, IPSubnet, DHCPServer, DNSDomain FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled=TRUE",
             row => new NetworkConfigInfo(
                 GetString(row, "Description"),
                 GetStringArray(row, "IPAddress"),
                 GetStringArray(row, "DefaultIPGateway"),
-                GetStringArray(row, "DNSServerSearchOrder")));
+                GetStringArray(row, "DNSServerSearchOrder"),
+                GetInt(row, "Index"),
+                GetBool(row, "DHCPEnabled"),
+                GetStringArray(row, "IPSubnet"),
+                GetString(row, "DHCPServer"),
+                GetString(row, "DNSDomain")));
     }
 
     private static List<DisplayInfo> QueryDisplays()
@@ -262,6 +497,51 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static List<PnPDeviceInfo> QueryPnP(string wql)
         => SafeQuery(wql, row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description"), GetString(row, "Status")));
+
+    private static List<ProblemDeviceInfo> QueryProblemDevices()
+    {
+        return SafeQuery(
+            "SELECT Name, DeviceID, PNPClass, ConfigManagerErrorCode, Status FROM Win32_PnPEntity WHERE ConfigManagerErrorCode <> 0",
+            row => new ProblemDeviceInfo(
+                GetString(row, "Name"),
+                GetString(row, "DeviceID"),
+                GetString(row, "PNPClass"),
+                GetInt(row, "ConfigManagerErrorCode"),
+                ErrorCodeText(GetInt(row, "ConfigManagerErrorCode")),
+                GetString(row, "Status")));
+    }
+
+    private static string? ErrorCodeText(int? code) => code switch
+    {
+        1 => "Not configured correctly",
+        2 => "Disabled",
+        3 => "Out of memory",
+        10 => "Cannot start",
+        12 => "Insufficient resources",
+        14 => "Insufficient resources",
+        22 => "Disabled",
+        24 => "Not present or not working",
+        28 => "Drivers not installed",
+        31 => "Not working properly",
+        32 => "Driver disabled",
+        37 => "Driver failed",
+        38 => "Driver not loaded",
+        39 => "Driver not loaded",
+        40 => "Service invalid",
+        41 => "Driver failed",
+        42 => "Driver failed",
+        43 => "Device reported a problem",
+        44 => "App or service stopped",
+        45 => "Not connected",
+        46 => "Graceful shutdown",
+        47 => "Safe removal",
+        48 => "Driver blocked",
+        49 => "Configuration too large",
+        52 => "Driver not signed",
+        53 => "Driver too old",
+        54 => "Reset needed",
+        _ => null,
+    };
 
     private static List<PrinterInfo> QueryPrinters()
     {

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using TecSight.App.Localization;
 using TecSight.Core;
 using TecSight.Core.Models;
 
@@ -7,8 +8,9 @@ namespace TecSight.App.Pages;
 
 public partial class PeripheralsPage : UserControl
 {
-    private sealed record PeripheralGroup(string Title, IReadOnlyList<PeripheralRow> Rows);
-    private sealed record PeripheralRow(string Name, string Detail);
+    private sealed record PeripheralGroup(string Title, IReadOnlyList<PeripheralItem> Items);
+    private sealed record PeripheralItem(string Name, string Summary, IReadOnlyList<PeripheralField> Details);
+    private sealed record PeripheralField(string Label, string Value);
 
     private static readonly string[] CategoryOrder =
         ["storage", "keyboard", "mouse", "camera", "audio", "display", "network",
@@ -89,22 +91,48 @@ public partial class PeripheralsPage : UserControl
             .OrderBy(g => Array.IndexOf(CategoryOrder, g.Key) is var idx && idx >= 0 ? idx : CategoryOrder.Length)
             .Select(g => new PeripheralGroup(
                 $"{vm.Loc["Peripheral." + g.Key]}  ({g.Count()})",
-                g.Select(d => new PeripheralRow(d.Name ?? "?", DeviceDetail(d))).ToList()))
+                g.Select(d => BuildItem(d, vm.Loc)).ToList()))
             .ToList();
         CountText.Text = $"{vm.Loc["Peripheral.Count"]} {devices.Count}  ·  {vm.Loc["Peripheral.UpdatedAt"]} {DateTime.Now:HH:mm:ss}";
         EmptyText.Text = vm.Loc["Peripheral.None"];
         EmptyText.Visibility = devices.Count == 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
     }
 
-    private static string DeviceDetail(PeripheralDevice d)
+    private static PeripheralItem BuildItem(PeripheralDevice d, LocalizationManager loc)
     {
-        var parts = new List<string>();
-        if (!string.IsNullOrEmpty(d.Detail)) parts.Add(d.Detail!);
-        if (!string.IsNullOrEmpty(d.Manufacturer)) parts.Add(d.Manufacturer!);
-        if (!string.IsNullOrEmpty(d.Description) && !string.Equals(d.Description, d.Name, StringComparison.Ordinal)) parts.Add(d.Description!);
-        if (!string.IsNullOrEmpty(d.Status)) parts.Add("状态 " + d.Status);
-        if (!string.IsNullOrEmpty(d.PnpClass)) parts.Add("[" + d.PnpClass + "]");
-        if (!string.IsNullOrEmpty(d.PnpDeviceId)) parts.Add(d.PnpDeviceId!);
-        return string.Join("  ", parts);
+        string Un() => loc["Peripheral.Unavailable"];
+
+        var details = new List<PeripheralField>
+        {
+            new(loc["Detail.Manufacturer"], d.Manufacturer ?? Un()),
+            new(loc["Detail.Type"], d.PnpClass ?? Un()),
+            new(loc["Detail.Status"], d.Status ?? Un()),
+            new(loc["Detail.Description"],
+                string.IsNullOrWhiteSpace(d.Description) || string.Equals(d.Description, d.Name, StringComparison.Ordinal)
+                    ? Un()
+                    : d.Description),
+            new(loc["Detail.PnpDeviceId"], d.PnpDeviceId ?? Un()),
+        };
+
+        var (vid, pid) = PeripheralProbe.ParseUsbVidPid(d.PnpDeviceId ?? d.HardwareId);
+        if (vid is not null || pid is not null)
+        {
+            details.Add(new PeripheralField(loc["Peripheral.Vid"], vid ?? Un()));
+            details.Add(new PeripheralField(loc["Peripheral.Pid"], pid ?? Un()));
+        }
+
+        details.Add(new PeripheralField(loc["Peripheral.DriverProvider"], d.DriverProvider ?? Un()));
+        details.Add(new PeripheralField(loc["Peripheral.DriverVersion"], d.DriverVersion ?? Un()));
+        details.Add(new PeripheralField(loc["Detail.DriverDate"], d.DriverDate ?? Un()));
+        details.Add(new PeripheralField(loc["Peripheral.Service"], d.Service ?? Un()));
+        details.Add(new PeripheralField(loc["Peripheral.DeviceId"], d.DeviceId ?? Un()));
+
+        var summary = new List<string>();
+        if (!string.IsNullOrWhiteSpace(d.Detail)) summary.Add(d.Detail!);
+        if (!string.IsNullOrWhiteSpace(d.Manufacturer)) summary.Add(d.Manufacturer!);
+        if (!string.IsNullOrWhiteSpace(d.Status)) summary.Add(d.Status!);
+        if (!string.IsNullOrWhiteSpace(d.PnpClass)) summary.Add(d.PnpClass!);
+
+        return new PeripheralItem(d.Name ?? "?", string.Join(" · ", summary), details);
     }
 }

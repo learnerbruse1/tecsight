@@ -97,18 +97,9 @@ public partial class OverviewPage : UserControl
         if (a.IsPhysical == true) score += 100;
         if (!string.IsNullOrWhiteSpace(a.MacAddress)) score += 40;
         if (a.SpeedBps is long sp && sp > 0) score += 20;
-        var n = (a.Name ?? "") + " " + (a.AdapterType ?? "");
-        if (ContainsAny(n, "TAP", "Tunnel", "Wintun", "Virtual", "vEthernet", "Loopback", "Remote NDIS",
-                "Hyper-V", "Wi-Fi Direct", "WAN Miniport", "Kernel Debug", "Bluetooth", "VMware", "VirtualBox",
-                "Hamachi", "zerotier", "Tailscale", "WireGuard", "UU"))
-        {
-            score -= 200;
-        }
+        if (HardwareClassifier.IsVirtualNetworkAdapter(a.Name, a.AdapterType)) score -= 200;
         return score;
     }
-
-    private static bool ContainsAny(string text, params string[] markers) =>
-        markers.Any(m => text.Contains(m, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>取硬件温度：优先指定名称（如 GPU Core），否则取该硬件最高温度。</summary>
     private static double? PreferNamedTemp(IEnumerable<SensorReading> sensors, Func<string, bool> hwMatch, string preferred)

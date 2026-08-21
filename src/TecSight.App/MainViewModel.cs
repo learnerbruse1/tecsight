@@ -7,7 +7,7 @@ using TecSight.Core.Models;
 
 namespace TecSight.App;
 
-public enum AppPage { Overview, Cpu, Memory, Disk, Gpu, Motherboard, Network, Battery, Sensors, Processes, OtherDevices, Peripherals }
+public enum AppPage { Overview, Cpu, Memory, Disk, Gpu, Motherboard, Network, Battery, Sensors, Processes, OtherDevices, Peripherals, Bios }
 
 /// <summary>导航项。ToString 返回标题，便于无障碍（屏幕阅读器）读出干净的导航名。</summary>
 public sealed record NavEntry(AppPage Page, string Title)
@@ -72,6 +72,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             new NavEntry(AppPage.Disk, Loc["Nav.Disk"]),
             new NavEntry(AppPage.Gpu, Loc["Nav.Gpu"]),
             new NavEntry(AppPage.Motherboard, Loc["Nav.Motherboard"]),
+            new NavEntry(AppPage.Bios, Loc["Nav.Bios"]),
             new NavEntry(AppPage.Network, Loc["Nav.Network"]),
             new NavEntry(AppPage.Battery, Loc["Nav.Battery"]),
             new NavEntry(AppPage.Sensors, Loc["Nav.Sensors"]),
