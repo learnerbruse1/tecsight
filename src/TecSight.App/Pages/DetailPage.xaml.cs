@@ -243,10 +243,10 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.Model"], g.Name ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Driver"], g.DriverVersion ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.DriverDate"], g.DriverDate ?? loc["Common.NotAvailable"]));
-                    if (g.CurrentHorizontalResolution.HasValue || g.CurrentVerticalResolution.HasValue)
+                    if (g.CurrentHorizontalResolution.HasValue && g.CurrentVerticalResolution.HasValue)
                     {
                         rows.Add(new StaticRow(loc["Detail.Resolution"],
-                            $"{g.CurrentHorizontalResolution ?? 0} × {g.CurrentVerticalResolution ?? 0}"));
+                            $"{g.CurrentHorizontalResolution} × {g.CurrentVerticalResolution}"));
                     }
                     if (g.CurrentRefreshRate.HasValue)
                     {
@@ -258,7 +258,7 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.AdapterCompatibility"], g.AdapterCompatibility ?? loc["Common.NotAvailable"]));
                     sections.Add(new DetailSection($"{loc["Nav.Gpu"]} {i + 1}", rows));
                 }
-                var vramTotalMb = GpuSensorValue(vm, "GPU Memory Total");
+                var vramTotalMb = GpuSensorSum(vm, "GPU Memory Total");
                 sections.Add(new DetailSection(loc["Detail.VramTotal"],
                     [new StaticRow(loc["Detail.VramTotal"], vramTotalMb.HasValue ? Format.Bytes(vramTotalMb.Value * 1024 * 1024) : loc["Common.NotAvailable"])]));
                 if (inv.Gpus.Count == 0)
@@ -271,11 +271,11 @@ public partial class DetailPage : UserControl
                 AddMetric(metricRows, formatters, selectors, loc["Detail.GpuFreq"],
                     v => Format.FreqMhz(GpuClockMhz(v)), m => GpuClockMhzFrom(m));
                 AddMetric(metricRows, formatters, selectors, loc["Detail.VramUsed"],
-                    v => Format.Bytes(GpuSensorValue(v, "GPU Memory Used") * 1024 * 1024),
-                    m => GpuSensorValueFrom(m, "GPU Memory Used") * 1024 * 1024);
+                    v => Format.Bytes(GpuSensorSum(v, "GPU Memory Used") * 1024 * 1024),
+                    m => GpuSensorSumFrom(m, "GPU Memory Used") * 1024 * 1024);
                 AddMetric(metricRows, formatters, selectors, loc["Detail.VramFree"],
-                    v => Format.Bytes(GpuSensorValue(v, "GPU Memory Free") * 1024 * 1024),
-                    m => GpuSensorValueFrom(m, "GPU Memory Free") * 1024 * 1024);
+                    v => Format.Bytes(GpuSensorSum(v, "GPU Memory Free") * 1024 * 1024),
+                    m => GpuSensorSumFrom(m, "GPU Memory Free") * 1024 * 1024);
                 AddMetric(metricRows, formatters, selectors, loc["Detail.VramUsage"],
                     VramUsageText, null);
                 // F6：GPU 引擎拆分 + GPU 相关传感器
@@ -374,7 +374,11 @@ public partial class DetailPage : UserControl
             case AppPage.Network:
             {
                 // 物理接口：所有物理网卡 + 详细信息（MAC / 类型 / 速率 / 连接状态 / 制造商 / PNP ID）
-                var physical = inv.NetworkAdapters.Where(n => n.IsPhysical == true).ToList();
+                var physical = inv.NetworkAdapters
+                    .Where(n => n.IsPhysical == true
+                                || (n.IsPhysical is null && !HardwareClassifier.IsVirtualNetworkAdapter(n.Name, n.AdapterType))
+                                || (n.NetConnectionStatus.HasValue && !HardwareClassifier.IsVirtualNetworkAdapter(n.Name, n.AdapterType)))
+                    .ToList();
                 var ifRows = new List<IDetailRow>();
                 foreach (var n in physical)
                 {
@@ -561,11 +565,18 @@ public partial class DetailPage : UserControl
         return text == key ? loc["Detail.NetStatus.Unknown"] : text;
     }
 
-    private static double? GpuSensorValue(MainViewModel vm, string name)
-        => vm.Snapshot.Metrics.Sensors.FirstOrDefault(s => s.SensorName.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value;
+    private static double? GpuSensorSum(MainViewModel vm, string name)
+        => GpuSensorSumFrom(vm.Snapshot.Metrics, name);
 
-    private static double? GpuSensorValueFrom(LiveMetrics m, string name)
-        => m.Sensors.FirstOrDefault(s => s.SensorName.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value;
+    private static double? GpuSensorSumFrom(LiveMetrics m, string name)
+    {
+        var values = m.Sensors
+            .Where(s => s.SensorName.Equals(name, StringComparison.OrdinalIgnoreCase) && s.Value.HasValue)
+            .Select(s => s.Value!.Value)
+            .Where(v => double.IsFinite(v))
+            .ToList();
+        return values.Count > 0 ? values.Sum() : null;
+    }
 
     private static double? GpuClockMhz(MainViewModel vm)
         => vm.Snapshot.Metrics.Sensors.FirstOrDefault(s =>
@@ -577,8 +588,8 @@ public partial class DetailPage : UserControl
 
     private static string VramUsageText(MainViewModel vm)
     {
-        var used = GpuSensorValue(vm, "GPU Memory Used");
-        var total = GpuSensorValue(vm, "GPU Memory Total");
+        var used = GpuSensorSum(vm, "GPU Memory Used");
+        var total = GpuSensorSum(vm, "GPU Memory Total");
         return used.HasValue && total is > 0
             ? $"{(Math.Min(100, used.Value / total.Value * 100)).ToString("0.0", CultureInfo.InvariantCulture)}%"
             : "—";
@@ -660,5 +671,5 @@ public partial class DetailPage : UserControl
         return string.Join("   ", parts);
     }
 
-    private static double? ParseBytes(string? s) => long.TryParse(s, out var b) ? b : null;
+    private static double? ParseBytes(string? s) => long.TryParse(s, out var b) && b > 0 ? b : null;
 }

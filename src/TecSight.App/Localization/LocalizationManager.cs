@@ -86,7 +86,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Overview.System", "系统", "System");
         Both("Overview.Down", "↓", "↓");
         Both("Overview.Up", "↑", "↑");
-                        Both("Overview.Refreshing", "实时刷新中（1 秒）", "Live refresh (1s)");
+                        Both("Overview.Refreshing", "实时刷新中", "Live refresh");
         Both("Overview.UpdatedAt", "更新于", "Updated at");
                 Both("Overview.CollectFailed", "⚠ 实时数据采集异常：性能计数器不可用（部分数据可能为 N/A）", "⚠ Live data unavailable: performance counters missing (some values may be N/A)");
         Both("Overview.InventoryFailed", "⚠ 硬件清单读取异常：WMI 不可用（部分硬件信息可能为 N/A）", "⚠ Hardware inventory unavailable: WMI missing (some info may be N/A)");
@@ -220,7 +220,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.EcVersion", "EC 固件版本", "EC Firmware Version");
         Both("Detail.PrimaryBios", "主 BIOS", "Primary BIOS");
         Both("Detail.Status", "状态", "Status");
-        Both("Detail.BiosReadOnly", "本页面以只读方式读取 BIOS/UEFI 信息，不执行任何写入或修改操作。", "BIOS/UEFI information is read read-only; no writes or modifications are performed.");
+        Both("Detail.BiosReadOnly", "本页面以只读方式读取 BIOS/UEFI 信息，不执行任何写入或修改操作。", "BIOS/UEFI information is read-only; no writes or modifications are performed.");
 
         Both("Detail.Interfaces", "物理接口", "Physical Interfaces");
         Both("Detail.ConnectedDevices", "已连接设备", "Connected Devices");

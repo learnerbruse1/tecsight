@@ -5,6 +5,8 @@ namespace TecSight.Core.Tests;
 public class UptimeFormatTests
 {
     [Theory]
+    [InlineData(0.0, "zh", "0 秒")]
+    [InlineData(0.0, "en", "0s")]
     [InlineData(30.0, "zh", "30 秒")]
     [InlineData(30.0, "en", "30s")]
     [InlineData(90.0, "zh", "1 分")]
@@ -14,6 +16,7 @@ public class UptimeFormatTests
     [InlineData(null, "zh", "—")]
     [InlineData(double.NaN, "zh", "—")]
     [InlineData(double.PositiveInfinity, "en", "—")]
+    [InlineData(double.MaxValue, "zh", "—")]
     [InlineData(-1d, "zh", "—")]
     public void Uptime_FormatsAccurately(double? seconds, string lang, string expected)
     {

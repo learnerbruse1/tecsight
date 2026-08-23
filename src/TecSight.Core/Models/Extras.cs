@@ -25,13 +25,18 @@ public sealed record SmartAttributeReading(string DiskName, byte Id, string Name
 public sealed record DisplayInfo(string? Name, string? Manufacturer, string? PnpDeviceId, string? SerialNumber = null, int? ManufactureYear = null);
 
 /// <summary>音频设备信息。</summary>
-public sealed record AudioDeviceInfo(string? Name, string? Manufacturer, string? Status);
+public sealed record AudioDeviceInfo(string? Name, string? Manufacturer, string? Status, string? PnpDeviceId = null);
 
 /// <summary>USB 设备信息（含状态与 PNP ID）。</summary>
 public sealed record UsbDeviceInfo(string? Name, string? Manufacturer, string? Status = null, string? PnpDeviceId = null);
 
-/// <summary>即插即用设备（键盘/鼠标等，含状态）。</summary>
-public sealed record PnPDeviceInfo(string? Name, string? Description, string? Status = null);
+/// <summary>即插即用设备（键盘/鼠标等，含状态与 PNP 标识）。</summary>
+public sealed record PnPDeviceInfo(
+    string? Name,
+    string? Description,
+    string? Status = null,
+    string? PnpDeviceId = null,
+    string? Manufacturer = null);
 
 /// <summary>打印机信息。</summary>
 public sealed record PrinterInfo(string? Name, string? DriverName, bool? IsDefault);

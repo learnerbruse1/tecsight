@@ -13,6 +13,8 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 {
     public string Name => "wmi-inventory";
 
+    private static readonly System.Management.EnumerationOptions WmiEnumerationOptions = new() { Timeout = TimeSpan.FromSeconds(20) };
+
     public HardwareInventory Capture()
     {
         var inv = new HardwareInventory { ComputerName = SafeString(() => Environment.MachineName) };
@@ -67,8 +69,8 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 GetString(row, "Manufacturer"),
                 ArchitectureName(GetInt(row, "Architecture")),
                 GetString(row, "SocketDesignation"),
-                GetInt(row, "L2CacheSize"),
-                GetInt(row, "L3CacheSize"),
+                PositiveInt(row, "L2CacheSize"),
+                PositiveInt(row, "L3CacheSize"),
                 GetInt(row, "CurrentClockSpeed") is int currentClock && currentClock > 0 ? currentClock : null,
                 GetString(row, "ProcessorId"),
                 GetBool(row, "VirtualizationFirmwareEnabled"),
@@ -103,14 +105,14 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     }
 
     private static bool? IsEcc(int? dataWidth, int? totalWidth) =>
-        dataWidth is int d && totalWidth is int t ? t > d : null;
+        dataWidth is int d && totalWidth is int t && d > 0 && t > 0 ? t > d : null;
 
     private static string? FormFactorName(int? f) => f switch
     {
         8 => "DIMM",
         12 => "SODIMM",
         24 => "FB-DIMM",
-        _ => f.HasValue ? $"FF {f}" : null,
+        _ => f is > 0 ? $"FF {f}" : null,
     };
 
     private static MemoryTopologyInfo? QueryMemoryTopology(int usedSlots)
@@ -119,12 +121,12 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
             "SELECT MemoryDevices, MaxCapacity, MemoryErrorCorrection FROM Win32_PhysicalMemoryArray",
             row => new
             {
-                Slots = GetInt(row, "MemoryDevices"),
-                MaxKb = GetLong(row, "MaxCapacity"),
+                Slots = PositiveInt(row, "MemoryDevices"),
+                MaxKb = GetLong(row, "MaxCapacity") is long kb && kb > 0 && kb != uint.MaxValue ? kb : (long?)null,
                 Ecc = GetInt(row, "MemoryErrorCorrection"),
             }).FirstOrDefault();
         if (arr is null) return null;
-        long? maxBytes = arr.MaxKb is long kb && kb > 0 ? kb * 1024L : null;
+        long? maxBytes = arr.MaxKb is long validKb ? validKb * 1024L : null;
         return new MemoryTopologyInfo(arr.Slots, usedSlots, maxBytes, ErrorCorrectionName(arr.Ecc));
     }
 
@@ -137,7 +139,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         5 => "Single-bit ECC",
         6 => "Multi-bit ECC",
         7 => "CRC",
-        _ => e.HasValue ? $"ECC {e}" : null,
+        _ => e is > 0 ? $"ECC {e}" : null,
     };
 
     private static List<LogicalDiskInfo> QueryLogicalDisks()
@@ -148,7 +150,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 GetString(row, "DeviceID"),
                 GetString(row, "VolumeName"),
                 GetString(row, "FileSystem"),
-                GetLong(row, "Size"),
+                GetLong(row, "Size") is long total && total > 0 ? total : null,
                 GetLong(row, "FreeSpace"),
                 GetInt(row, "DriveType")));
     }
@@ -254,7 +256,12 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         return SafeQuery(
                 "root\\cimv2\\Security\\MicrosoftTpm",
                 "SELECT SpecVersion, ManufacturerVersion FROM Win32_Tpm",
-                row => (GetString(row, "SpecVersion") ?? GetString(row, "ManufacturerVersion"))?.Trim())
+                row =>
+                {
+                    var spec = GetString(row, "SpecVersion")?.Trim();
+                    var manufacturer = GetString(row, "ManufacturerVersion")?.Trim();
+                    return !string.IsNullOrWhiteSpace(spec) ? spec : manufacturer;
+                })
             .FirstOrDefault();
     }
 
@@ -267,13 +274,14 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         27 => "LPDDR4",
         34 => "DDR5",
         35 => "LPDDR5",
-        _ => t.HasValue ? $"Type {t}" : null,
+        _ => t is > 0 ? $"Type {t}" : null,
     };
 
     private static List<DiskInfo> QueryDisks()
     {
         var disks = SafeQuery("SELECT Model, SerialNumber, Size FROM Win32_DiskDrive",
-            row => new DiskInfo(GetString(row, "Model"), GetString(row, "SerialNumber"), GetLong(row, "Size"), Health: null));
+            row => new DiskInfo(GetString(row, "Model"), GetString(row, "SerialNumber"),
+                GetLong(row, "Size") is long diskSize && diskSize > 0 ? diskSize : null, Health: null));
 
         // 磁盘健康/介质/总线/固件：MSFT_PhysicalDisk（无需管理员）
         var storage = SafeQuery("root\\Microsoft\\Windows\\Storage",
@@ -305,7 +313,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         return result;
     }
 
-    private static string? MediaTypeName(int? t) => t switch { 3 => "HDD", 4 => "SSD", 5 => "SCM", _ => t.HasValue ? $"Type {t}" : null };
+    private static string? MediaTypeName(int? t) => t switch { 3 => "HDD", 4 => "SSD", 5 => "SCM", _ => t is > 0 ? $"Type {t}" : null };
     private static string? BusTypeName(int? t) => t switch
     {
         0 => "Unknown", 1 => "SCSI", 2 => "ATAPI", 3 => "ATA", 4 => "IEEE 1394", 5 => "SSA",
@@ -328,12 +336,12 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
             "SELECT Name, AdapterRAM, DriverVersion, DriverDate, CurrentHorizontalResolution, CurrentVerticalResolution, CurrentRefreshRate, VideoModeDescription, AdapterCompatibility, VideoProcessor, VideoArchitecture FROM Win32_VideoController",
             row => new GpuInfo(
                 GetString(row, "Name"),
-                GetLong(row, "AdapterRAM"),
+                GetLong(row, "AdapterRAM") is long vram && vram > 0 ? vram : null,
                 GetString(row, "DriverVersion"),
                 FormatCimDate(GetString(row, "DriverDate")),
-                GetInt(row, "CurrentHorizontalResolution"),
-                GetInt(row, "CurrentVerticalResolution"),
-                GetInt(row, "CurrentRefreshRate"),
+                PositiveInt(row, "CurrentHorizontalResolution"),
+                PositiveInt(row, "CurrentVerticalResolution"),
+                PositiveInt(row, "CurrentRefreshRate"),
                 GetString(row, "VideoModeDescription"),
                 GetString(row, "AdapterCompatibility"),
                 GetString(row, "VideoProcessor"),
@@ -418,6 +426,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
         return adapters
             .Where(x => x.IsPhysical == true
+                || (x.IsPhysical is null && !HardwareClassifier.IsVirtualNetworkAdapter(x.Name, x.AdapterType))
                 || (x.NetConnectionStatus.HasValue && !HardwareClassifier.IsVirtualNetworkAdapter(x.Name, x.AdapterType)))
             .Select(x =>
             {
@@ -460,7 +469,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 DecodeWmiString(row["ManufacturerName"]),
                 PnpDeviceId: null,
                 SerialNumber: DecodeWmiString(row["SerialNumberID"]),
-                ManufactureYear: GetInt(row, "YearOfManufacture")));
+                ManufactureYear: PositiveInt(row, "YearOfManufacture")));
         if (edid.Any(d => !string.IsNullOrWhiteSpace(d.Name) || !string.IsNullOrWhiteSpace(d.Manufacturer))) return edid;
 
         return SafeQuery(
@@ -478,7 +487,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 foreach (var item in arr)
                 {
                     var u = Convert.ToUInt16(item);
-                    if (u >= 32 && u < 127) sb.Append((char)u);
+                    if (u >= 32) sb.Append((char)u);
                 }
                 return sb.ToString().Trim();
             }
@@ -489,8 +498,8 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static List<AudioDeviceInfo> QueryAudio()
     {
-        return SafeQuery("SELECT Name, Manufacturer, Status FROM Win32_SoundDevice",
-            row => new AudioDeviceInfo(GetString(row, "Name"), GetString(row, "Manufacturer"), GetString(row, "Status")));
+        return SafeQuery("SELECT Name, Manufacturer, Status, PNPDeviceID FROM Win32_SoundDevice",
+            row => new AudioDeviceInfo(GetString(row, "Name"), GetString(row, "Manufacturer"), GetString(row, "Status"), GetString(row, "PNPDeviceID")));
     }
 
     private static List<UsbDeviceInfo> QueryUsb()
@@ -499,12 +508,17 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
             row => new UsbDeviceInfo(GetString(row, "Name"), GetString(row, "Manufacturer"), GetString(row, "Status"), GetString(row, "PNPDeviceID")));
     }
 
-    private static List<PnPDeviceInfo> QueryKeyboards() => QueryPnP("SELECT Name, Description, Status FROM Win32_Keyboard");
+    private static List<PnPDeviceInfo> QueryKeyboards() => QueryPnP("SELECT Name, Description, Status, PNPDeviceID, Manufacturer FROM Win32_Keyboard");
 
-    private static List<PnPDeviceInfo> QueryPointing() => QueryPnP("SELECT Name, Description, Status FROM Win32_PointingDevice");
+    private static List<PnPDeviceInfo> QueryPointing() => QueryPnP("SELECT Name, Description, Status, PNPDeviceID, Manufacturer FROM Win32_PointingDevice");
 
     private static List<PnPDeviceInfo> QueryPnP(string wql)
-        => SafeQuery(wql, row => new PnPDeviceInfo(GetString(row, "Name"), GetString(row, "Description"), GetString(row, "Status")));
+        => SafeQuery(wql, row => new PnPDeviceInfo(
+            GetString(row, "Name"),
+            GetString(row, "Description"),
+            GetString(row, "Status"),
+            GetString(row, "PNPDeviceID"),
+            GetString(row, "Manufacturer")));
 
     private static List<ProblemDeviceInfo> QueryProblemDevices()
     {
@@ -579,7 +593,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     private static BatteryInfo? QueryBattery()
     {
         var name = QueryFirstString("SELECT Name FROM Win32_Battery", "Name");
-        if (name is null) return null;
+        if (string.IsNullOrWhiteSpace(name)) return null;
         double? designed = SafeQuery("root\\wmi", "SELECT DesignedCapacity FROM BatteryStaticData", row => ToWh(GetDouble(row, "DesignedCapacity"))).FirstOrDefault();
         double? full = SafeQuery("root\\wmi", "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity", row => ToWh(GetDouble(row, "FullChargedCapacity"))).FirstOrDefault();
         int? cycles = SafeQuery("root\\wmi", "SELECT CycleCount FROM BatteryCycleCount", row => GetInt(row, "CycleCount")).FirstOrDefault();
@@ -614,8 +628,9 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(scope, query);
-            return searcher.Get().Cast<ManagementBaseObject>().Select(map).ToList();
+            using var searcher = new ManagementObjectSearcher(scope, query, WmiEnumerationOptions);
+            using var results = searcher.Get();
+            return results.Cast<ManagementBaseObject>().Select(map).ToList();
         }
         catch
         {
@@ -627,8 +642,11 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(query);
-            var first = searcher.Get().Cast<ManagementBaseObject>().FirstOrDefault();
+            var scope = new ManagementScope("root\\cimv2");
+            var objectQuery = new ObjectQuery(query);
+            using var searcher = new ManagementObjectSearcher(scope, objectQuery, WmiEnumerationOptions);
+            using var results = searcher.Get();
+            var first = results.Cast<ManagementBaseObject>().FirstOrDefault();
             return first is null ? null : GetString(first, property);
         }
         catch
@@ -639,7 +657,13 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static string? GetString(ManagementBaseObject o, string p)
     {
-        try { return o[p]?.ToString(); } catch { return null; }
+        try
+        {
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            return value.ToString();
+        }
+        catch { return null; }
     }
 
     private static string? NonZeroString(string? value) => value == "0" ? null : value;
@@ -659,22 +683,51 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
 
     private static int? GetInt(ManagementBaseObject o, string p)
     {
-        try { return Convert.ToInt32(o[p]); } catch { return null; }
+        try
+        {
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            return Convert.ToInt32(value);
+        }
+        catch { return null; }
+    }
+
+    private static int? PositiveInt(ManagementBaseObject o, string p)
+    {
+        return GetInt(o, p) is int v && v > 0 ? v : null;
     }
 
     private static double? GetDouble(ManagementBaseObject o, string p)
     {
-        try { return Convert.ToDouble(o[p]); } catch { return null; }
+        try
+        {
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            return Convert.ToDouble(value);
+        }
+        catch { return null; }
     }
 
     private static long? GetLong(ManagementBaseObject o, string p)
     {
-        try { return Convert.ToInt64(o[p]); } catch { return null; }
+        try
+        {
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            return Convert.ToInt64(value);
+        }
+        catch { return null; }
     }
 
     private static bool? GetBool(ManagementBaseObject o, string p)
     {
-        try { return Convert.ToBoolean(o[p]); } catch { return null; }
+        try
+        {
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            return Convert.ToBoolean(value);
+        }
+        catch { return null; }
     }
 
     private static string? SafeString(Func<string?> f)

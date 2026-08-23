@@ -6,10 +6,14 @@ namespace TecSight.App;
 
 public partial class SettingsWindow : Window
 {
+    private readonly string _originalLanguage;
+
     public SettingsWindow()
     {
         InitializeComponent();
         DataContext = LocalizationManager.Instance;
+        Title = LocalizationManager.Instance["Settings.Title"];
+        _originalLanguage = LocalizationManager.Instance.CurrentLanguage;
 
         foreach (var item in RefreshIntervalBox.Items)
         {
@@ -19,6 +23,7 @@ public partial class SettingsWindow : Window
                 break;
             }
         }
+        if (RefreshIntervalBox.SelectedIndex < 0) RefreshIntervalBox.SelectedIndex = 0;
 
         foreach (var item in PeripheralIntervalBox.Items)
         {
@@ -28,6 +33,7 @@ public partial class SettingsWindow : Window
                 break;
             }
         }
+        if (PeripheralIntervalBox.SelectedIndex < 0) PeripheralIntervalBox.SelectedIndex = 0;
 
         foreach (var item in InventoryIntervalBox.Items)
         {
@@ -37,6 +43,7 @@ public partial class SettingsWindow : Window
                 break;
             }
         }
+        if (InventoryIntervalBox.SelectedIndex < 0) InventoryIntervalBox.SelectedIndex = 0;
 
         foreach (var item in LanguageBox.Items)
         {
@@ -62,7 +69,20 @@ public partial class SettingsWindow : Window
         NoiseFilterBox.IsChecked = AppSettings.HideNetworkNoise;
     }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+    private void Cancel_Click(object sender, RoutedEventArgs e)
+    {
+        LocalizationManager.Instance.CurrentLanguage = _originalLanguage;
+        DialogResult = false;
+    }
+
+    private void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (LanguageBox.SelectedItem is ComboBoxItem cbi && cbi.Tag is string ls)
+        {
+            LocalizationManager.Instance.CurrentLanguage = ls;
+        }
+        Title = LocalizationManager.Instance["Settings.Title"];
+    }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
@@ -90,5 +110,14 @@ public partial class SettingsWindow : Window
         AppSettings.SetHideNetworkNoise(NoiseFilterBox.IsChecked == true);
         AppSettings.Save();
         DialogResult = true;
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        if (DialogResult != true)
+        {
+            LocalizationManager.Instance.CurrentLanguage = _originalLanguage;
+        }
+        base.OnClosed(e);
     }
 }

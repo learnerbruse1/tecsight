@@ -9,6 +9,8 @@ namespace TecSight.Core;
 /// </summary>
 public static class PeripheralProbe
 {
+    private static readonly System.Management.EnumerationOptions WmiEnumerationOptions = new() { Timeout = TimeSpan.FromSeconds(20) };
+
     public static IReadOnlyList<PeripheralDevice> Scan()
     {
         var list = new List<PeripheralDevice>();
@@ -19,7 +21,18 @@ public static class PeripheralProbe
         ScanPointingDevices(list, seen);
         ScanUsbDisks(list);
         ScanRemovableDisks(list);
-        return list;
+
+        var deduped = new List<PeripheralDevice>(list.Count);
+        var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var device in list)
+        {
+            if (!string.IsNullOrWhiteSpace(device.PnpDeviceId) && !seenIds.Add(device.PnpDeviceId.Trim()))
+            {
+                continue;
+            }
+            deduped.Add(device);
+        }
+        return deduped;
     }
 
     private static void ScanHidDevices(List<PeripheralDevice> list, HashSet<string> seen)
@@ -41,10 +54,14 @@ public static class PeripheralProbe
                 {
                     name = $"HID {device.VendorID:X4}:{device.ProductID:X4}";
                 }
-                var id = $"USB\\VID_{device.VendorID:X4}&PID_{device.ProductID:X4}";
-                var key = "hid|" + name + "|" + id;
+                if (IsInternalHid(name, "HID Device")) continue;
+                var id = device.VendorID != 0 && device.ProductID != 0
+                    ? $"USB\\VID_{device.VendorID:X4}&PID_{device.ProductID:X4}"
+                    : null;
+                var key = "hid|" + name + "|" + (id ?? "");
                 if (!seen.Add(key)) continue;
-                list.Add(new PeripheralDevice(name, null, "HID Device", "input", "HIDClass",
+                var category = Classify("HIDClass", name, "HID Device");
+                list.Add(new PeripheralDevice(name, null, "HID Device", category, "HIDClass",
                     Detail: null,
                     Status: "OK",
                     PnpDeviceId: id));
@@ -74,22 +91,45 @@ public static class PeripheralProbe
         foreach (var a in inv.AudioDevices)
         {
             if (string.IsNullOrWhiteSpace(a.Name)) continue;
-            list.Add(new PeripheralDevice(a.Name, a.Manufacturer, "Audio", "audio", "MEDIA", Detail: null, Status: a.Status));
+            list.Add(new PeripheralDevice(a.Name, a.Manufacturer, "Audio", "audio", "MEDIA", Detail: null, Status: a.Status, PnpDeviceId: a.PnpDeviceId));
         }
         foreach (var u in inv.UsbDevices)
         {
             if (string.IsNullOrWhiteSpace(u.Name)) continue;
-            list.Add(new PeripheralDevice(u.Name, u.Manufacturer, "USB", "usb", "USB", Detail: null, Status: u.Status, PnpDeviceId: u.PnpDeviceId));
+            var category = Classify("USB", u.Name, null);
+            list.Add(new PeripheralDevice(u.Name, u.Manufacturer, "USB", category, "USB", Detail: null, Status: u.Status, PnpDeviceId: u.PnpDeviceId));
+        }
+        foreach (var n in inv.NetworkAdapters.Where(n =>
+                     n.IsPhysical == true
+                     || (n.IsPhysical is null && !HardwareClassifier.IsVirtualNetworkAdapter(n.Name, n.AdapterType))
+                     || (n.NetConnectionStatus.HasValue && !HardwareClassifier.IsVirtualNetworkAdapter(n.Name, n.AdapterType))))
+        {
+            if (string.IsNullOrWhiteSpace(n.Name)) continue;
+            var detail = new List<string>();
+            if (n.SpeedBps is long sp && sp > 0) detail.Add(FormatUtil.LinkSpeed(sp, ""));
+            if (!string.IsNullOrWhiteSpace(n.AdapterType)) detail.Add(n.AdapterType);
+            list.Add(new PeripheralDevice(
+                n.Name,
+                n.Manufacturer,
+                n.AdapterType,
+                "network",
+                "Net",
+                Detail: string.Join(" · ", detail.Where(x => !string.IsNullOrWhiteSpace(x))),
+                Status: n.NetConnectionStatus?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                PnpDeviceId: n.PnpDeviceId,
+                DriverProvider: null,
+                DriverVersion: n.DriverVersion,
+                DriverDate: n.DriverDate));
         }
         foreach (var k in inv.Keyboards)
         {
             if (string.IsNullOrWhiteSpace(k.Name)) continue;
-            list.Add(new PeripheralDevice(k.Name, null, k.Description, "keyboard", "Keyboard", Detail: null, Status: k.Status));
+            list.Add(new PeripheralDevice(k.Name, k.Manufacturer, k.Description, "keyboard", "Keyboard", Detail: null, Status: k.Status, PnpDeviceId: k.PnpDeviceId));
         }
         foreach (var m in inv.PointingDevices)
         {
             if (string.IsNullOrWhiteSpace(m.Name)) continue;
-            list.Add(new PeripheralDevice(m.Name, null, m.Description, "mouse", "Mouse", Detail: null, Status: m.Status));
+            list.Add(new PeripheralDevice(m.Name, m.Manufacturer, m.Description, "mouse", "Mouse", Detail: null, Status: m.Status, PnpDeviceId: m.PnpDeviceId));
         }
         foreach (var p in inv.Printers)
         {
@@ -117,9 +157,12 @@ public static class PeripheralProbe
                 Width = GetInt(o, "ScreenWidth"),
                 Height = GetInt(o, "ScreenHeight"),
             });
-        var refreshRate = SafeQuery("root\\cimv2",
+        var refreshRates = SafeQuery("root\\cimv2",
             "SELECT CurrentRefreshRate FROM Win32_VideoController",
-            o => GetInt(o, "CurrentRefreshRate")).FirstOrDefault();
+            o => GetInt(o, "CurrentRefreshRate"))
+            .Where(v => v is > 0)
+            .ToList();
+        var refreshRate = refreshRates.Count == 1 ? refreshRates[0] : (int?)null;
 
         var devices = SafeQuery("root\\cimv2",
             "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID, DriverProvider, DriverVersion, DriverDate, Service, DeviceID, ConfigManagerErrorCode, HardwareID FROM Win32_PnPEntity",
@@ -210,8 +253,9 @@ public static class PeripheralProbe
             "SELECT Model, Size FROM Win32_DiskDrive WHERE InterfaceType='USB'",
             o =>
             {
+                var model = GetString(o, "Model");
                 var size = GetUInt64(o, "Size");
-                return new PeripheralDevice(GetString(o, "Model"), Manufacturer: null, Description: "USB Disk",
+                return new PeripheralDevice(string.IsNullOrWhiteSpace(model) ? "USB Disk" : model, Manufacturer: null, Description: "USB Disk",
                     Category: "storage", PnpClass: "USB",
                     Detail: size is ulong s && s > 0 ? FormatUtil.Bytes(s, "") : null);
             }));
@@ -223,13 +267,13 @@ public static class PeripheralProbe
             "SELECT DeviceID, Size, FreeSpace, FileSystem FROM Win32_LogicalDisk WHERE DriveType=2",
             o =>
             {
-                var id = GetString(o, "DeviceID");
+                var id = GetString(o, "DeviceID") ?? "Removable Disk";
                 var size = GetUInt64(o, "Size");
                 var free = GetUInt64(o, "FreeSpace");
                 var fs = GetString(o, "FileSystem");
                 return new PeripheralDevice(id, Manufacturer: null, Description: "Removable Disk",
                     Category: "storage", PnpClass: "LogicalDisk",
-                    Detail: $"{id}  {FormatUtil.Bytes(size.HasValue ? (double?)size.Value : null, "N/A")}  free {FormatUtil.Bytes(free.HasValue ? (double?)free.Value : null, "N/A")}  {fs}");
+                    Detail: $"{id}  {FormatUtil.Bytes(size is ulong s && s > 0 ? (double?)s : null, "N/A")}  free {FormatUtil.Bytes(free.HasValue ? (double?)free.Value : null, "N/A")}  {fs}");
             }));
     }
 
@@ -255,6 +299,10 @@ public static class PeripheralProbe
                 if (n.Contains("Phone", StringComparison.OrdinalIgnoreCase) || n.Contains("MTP", StringComparison.OrdinalIgnoreCase)) return "phone";
                 if (n.Contains("Storage", StringComparison.OrdinalIgnoreCase) || n.Contains("Disk", StringComparison.OrdinalIgnoreCase) || n.Contains("存储")) return "storage";
                 if (n.Contains("Audio", StringComparison.OrdinalIgnoreCase) || n.Contains("耳机") || n.Contains("Headset")) return "audio";
+                if (n.Contains("Camera", StringComparison.OrdinalIgnoreCase) || n.Contains("Webcam", StringComparison.OrdinalIgnoreCase) || n.Contains("Video", StringComparison.OrdinalIgnoreCase) || n.Contains("摄像头")) return "camera";
+                if (n.Contains("Bluetooth", StringComparison.OrdinalIgnoreCase) || n.Contains("蓝牙")) return "bluetooth";
+                if (n.Contains("Input", StringComparison.OrdinalIgnoreCase) || n.Contains("HID", StringComparison.OrdinalIgnoreCase)) return "input";
+                if (n.Contains("Network", StringComparison.OrdinalIgnoreCase) || n.Contains("Ethernet", StringComparison.OrdinalIgnoreCase)) return "network";
                 return "usb";
             case "USBHub":
                 return "hub";
@@ -266,7 +314,8 @@ public static class PeripheralProbe
                 if (n.Contains("Consumer Control", StringComparison.OrdinalIgnoreCase)) return "input";
                 return "input";
             default:
-                if (n.Contains("摄像头", StringComparison.OrdinalIgnoreCase) || (n.Contains("Camera", StringComparison.OrdinalIgnoreCase) && pnpClass is "Image" or null)) return "camera";
+                if (n.Contains("摄像头", StringComparison.OrdinalIgnoreCase)
+                    || ((n.Contains("Camera", StringComparison.OrdinalIgnoreCase) || n.Contains("Video", StringComparison.OrdinalIgnoreCase)) && pnpClass is "Image" or null)) return "camera";
                 if (n.Contains("蓝牙", StringComparison.OrdinalIgnoreCase) || n.Contains("Bluetooth", StringComparison.OrdinalIgnoreCase)) return "bluetooth";
                 return "other";
         }
@@ -296,8 +345,9 @@ public static class PeripheralProbe
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(scope, query);
-            return searcher.Get().Cast<ManagementBaseObject>().Select(map).ToList();
+            using var searcher = new ManagementObjectSearcher(scope, query, WmiEnumerationOptions);
+            using var results = searcher.Get();
+            return results.Cast<ManagementBaseObject>().Select(map).ToList();
         }
         catch
         {
@@ -308,26 +358,46 @@ public static class PeripheralProbe
 
     private static string? GetString(ManagementBaseObject o, string p)
     {
-        try { return o[p]?.ToString(); } catch { return null; }
+        try
+        {
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            return value.ToString();
+        }
+        catch { return null; }
     }
 
     private static string? GetFirstString(ManagementBaseObject o, string p)
     {
         try
         {
-            if (o[p] is string[] arr) return arr.FirstOrDefault(s => !string.IsNullOrEmpty(s));
-            return o[p]?.ToString();
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            if (value is string[] arr) return arr.FirstOrDefault(s => !string.IsNullOrEmpty(s));
+            return value.ToString();
         }
         catch { return null; }
     }
 
     private static int? GetInt(ManagementBaseObject o, string p)
     {
-        try { return Convert.ToInt32(o[p]); } catch { return null; }
+        try
+        {
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            return Convert.ToInt32(value);
+        }
+        catch { return null; }
     }
 
     private static ulong? GetUInt64(ManagementBaseObject o, string p)
     {
-        try { return Convert.ToUInt64(o[p]); } catch { return null; }
+        try
+        {
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            return Convert.ToUInt64(value);
+        }
+        catch { return null; }
     }
 }

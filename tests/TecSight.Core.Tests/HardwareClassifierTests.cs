@@ -30,9 +30,12 @@ public class HardwareClassifierTests
     [Theory]
     [InlineData("Intel Core i7", true)]
     [InlineData("AMD Ryzen 7", true)]
+    [InlineData("AMD Ryzen 7 5800H with Radeon Graphics", true)]
     [InlineData("CPU Package", true)]
     [InlineData("Intel(R) Ethernet Controller I225-V", false)]
     [InlineData("NVIDIA GeForce RTX 4050", false)]
+    [InlineData("AMD Radeon RX 7900 XTX", false)]
+    [InlineData("Intel(R) Arc(TM) A770 Graphics", false)]
     [InlineData("", false)]
     public void MatchesCpuHw_DetectsCpuHardware(string name, bool expected)
     {

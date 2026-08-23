@@ -17,11 +17,13 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     private const byte BatteryFlagCharging = 0x08;
     private const string EngineTypePrefix = "engtype_";
 
-    private readonly PerformanceCounter? _cpu;
-    private readonly PerformanceCounter? _cpuFreq;
-    private readonly PerformanceCounter? _memoryPercent;
-    private readonly PerformanceCounter? _diskRead;
-    private readonly PerformanceCounter? _diskWrite;
+    private PerformanceCounter? _cpu;
+    private PerformanceCounter? _cpuFreq;
+    private PerformanceCounter? _memoryPercent;
+    private PerformanceCounter? _diskRead;
+    private PerformanceCounter? _diskWrite;
+    private readonly object _counterGate = new();
+    private bool _countersInitialized;
     private List<PerformanceCounter> _networkDown = [];
     private List<PerformanceCounter> _networkUp = [];
     private List<PerformanceCounter> _gpuEngines = [];
@@ -33,18 +35,28 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     private DateTimeOffset _lastProcessCapture = DateTimeOffset.MinValue;
     private const double ProcessCaptureIntervalSeconds = 5.0; // 进程枚举较重（~180ms），5 秒一次足够（CPU% 按增量计算，窗口更长更稳）
 
-    public PerformanceMetricsProvider()
+    public PerformanceMetricsProvider() { }
+
+    /// <summary>延迟创建性能计数器：首次采集时才初始化，避免构造窗口时阻塞 UI。</summary>
+    private void EnsureCounters()
     {
-        _cpu = CreateCounter("Processor Information", "% Processor Utility", "_Total")
-               ?? CreateCounter("Processor", "% Processor Time", "_Total");
-        _cpuFreq = CreateCounter("Processor Information", "Processor Frequency", "_Total");
-        _memoryPercent = CreateCounter("Memory", "% Committed Bytes In Use", null);
-        _diskRead = CreateCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total");
-        _diskWrite = CreateCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total");
+        if (_countersInitialized) return;
+        lock (_counterGate)
+        {
+            if (_countersInitialized) return;
+            _cpu = CreateCounter("Processor Information", "% Processor Utility", "_Total")
+                   ?? CreateCounter("Processor", "% Processor Time", "_Total");
+            _cpuFreq = CreateCounter("Processor Information", "Processor Frequency", "_Total");
+            _memoryPercent = CreateCounter("Memory", "% Committed Bytes In Use", null);
+            _diskRead = CreateCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total");
+            _diskWrite = CreateCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total");
+            _countersInitialized = true;
+        }
     }
 
     public LiveMetrics Capture()
     {
+        EnsureCounters();
         var ts = DateTimeOffset.Now;
         var (total, used) = MemoryBytes();
         var (batteryPercent, batteryCharging) = BatteryStatus();
@@ -89,12 +101,13 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
                 foreach (var c in _gpuEngines)
                 {
                     var v = c.NextValue();
-                    if (v <= 0) continue;
+                    if (!double.IsFinite(v) || v <= 0) continue;
                     var type = ExtractEngineType(c.InstanceName);
                     sums[type] = sums.GetValueOrDefault(type) + v;
                 }
                 var engines = sums.Select(kv => new GpuEngineUsage(kv.Key, Math.Clamp(kv.Value, 0, 100))).ToList();
-                var max = engines.Count == 0 ? 0 : engines.Max(e => e.Percent);
+                if (engines.Count == 0) return ([], null);
+                var max = engines.Max(e => e.Percent);
                 var result = (engines, Clamp01(max));
                 _cachedGpu = result;
                 _lastGpuRead = DateTimeOffset.UtcNow;
@@ -183,12 +196,17 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             RefreshNetworkCountersIfStale();
             if (_networkDown.Count == 0) return null; // 无计数器 → 不可用，不造假
             var sum = 0.0;
+            var count = 0;
             foreach (var c in _networkDown)
             {
                 var v = c.NextValue();
-                if (v > 0) sum += v;
+                if (double.IsFinite(v) && v > 0)
+                {
+                    sum += v;
+                    count++;
+                }
             }
-            return sum;
+            return count > 0 ? sum : null;
         }
         catch
         {
@@ -203,12 +221,17 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             RefreshNetworkCountersIfStale();
             if (_networkUp.Count == 0) return null;
             var sum = 0.0;
+            var count = 0;
             foreach (var c in _networkUp)
             {
                 var v = c.NextValue();
-                if (v > 0) sum += v;
+                if (double.IsFinite(v) && v > 0)
+                {
+                    sum += v;
+                    count++;
+                }
             }
-            return sum;
+            return count > 0 ? sum : null;
         }
         catch
         {
@@ -278,6 +301,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         {
             if (counter is null) return null;
             var v = counter.NextValue();
+            if (!double.IsFinite(v)) return null;
             return v < 0 ? 0 : v;
         }
         catch
@@ -303,6 +327,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     private static double? Clamp01(double? v)
     {
         if (v is null) return null;
+        if (!double.IsFinite(v.Value)) return null;
         return Math.Clamp(v.Value, 0, 100);
     }
 
@@ -316,14 +341,19 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
 
     public void Dispose()
     {
-        _cpu?.Dispose();
-        _cpuFreq?.Dispose();
-        _memoryPercent?.Dispose();
-        _diskRead?.Dispose();
-        _diskWrite?.Dispose();
+        TryDispose(_cpu);
+        TryDispose(_cpuFreq);
+        TryDispose(_memoryPercent);
+        TryDispose(_diskRead);
+        TryDispose(_diskWrite);
         DisposeAll(_networkDown);
         DisposeAll(_networkUp);
         DisposeAll(_gpuEngines);
+    }
+
+    private static void TryDispose(PerformanceCounter? counter)
+    {
+        try { counter?.Dispose(); } catch { }
     }
 
     private static (double? Total, double? Used) MemoryBytes()
@@ -348,13 +378,13 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             if (!Kernel32.GetSystemPowerStatus(out var sps)) return (null, null);
             double? percent = sps.BatteryLifePercent == BatteryPercentUnknown ? null : sps.BatteryLifePercent;
             bool? charging;
-            if (sps.ACLineStatus == Kernel32.AC_STATUS.AC_OFFLINE)
+            if ((sps.BatteryFlag & Kernel32.BATTERY_STATUS.BATTERY_UNKNOWN) != 0)
+            {
+                charging = null; // 状态位未知
+            }
+            else if (sps.ACLineStatus == Kernel32.AC_STATUS.AC_OFFLINE)
             {
                 charging = false; // 用电池
-            }
-            else if (sps.BatteryFlag == Kernel32.BATTERY_STATUS.BATTERY_UNKNOWN)
-            {
-                charging = null; // 接电源但状态未知
             }
             else
             {

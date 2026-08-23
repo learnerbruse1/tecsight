@@ -57,7 +57,11 @@ public sealed class SnapshotExporter : ISnapshotExporter
         {
             sb.AppendLine($"  CPU: {c.Name ?? "不可用 N/A"}  {c.CoreCount}核/{c.LogicalProcessorCount}线程  {c.Architecture ?? ""}  L2={(c.L2CacheKb.HasValue ? $"{c.L2CacheKb}KB" : "N/A")} L3={(c.L3CacheKb.HasValue ? $"{c.L3CacheKb}KB" : "N/A")}  虚拟化 Virtualization: {YesNo(c.VirtualizationFirmwareEnabled)}".TrimEnd());
         }
-        sb.AppendLine($"  内存 Memory: {inv.MemoryModules.Count} 条 / {FormatBytes(inv.MemoryModules.Sum(x => long.TryParse(x.CapacityBytes, out var b) ? b : 0))}");
+        var memoryTotalBytes = inv.MemoryModules.Sum(x => long.TryParse(x.CapacityBytes, out var b) ? b : 0);
+        var memoryText = inv.MemoryModules.Count > 0 && memoryTotalBytes > 0
+            ? FormatBytes(memoryTotalBytes)
+            : "不可用 N/A";
+        sb.AppendLine($"  内存 Memory: {inv.MemoryModules.Count} 条 / {memoryText}");
         if (inv.MemoryTopology is { } mt)
         {
             sb.AppendLine($"  内存拓扑 Memory Topology: 插槽 Slots {mt.UsedSlots}/{mt.TotalSlots}  最大 Max {FormatBytes(mt.MaxCapacityBytes)}  ECC {mt.ErrorCorrection ?? "N/A"}".Trim());
@@ -142,8 +146,13 @@ public sealed class SnapshotExporter : ISnapshotExporter
 
     private static string JoinNames(IEnumerable<string?> names)
     {
-        var list = names.Where(n => !string.IsNullOrWhiteSpace(n)).Take(8).Select(n => n!.Trim()).ToList();
-        return list.Count == 0 ? "" : string.Join("; ", list) + (names.Count() > 8 ? " …" : "");
+        var list = names
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n!.Trim())
+            .ToList();
+        return list.Count == 0
+            ? ""
+            : string.Join("; ", list.Take(8)) + (list.Count > 8 ? " …" : "");
     }
 
     private static string Num(double? v) => v is double x && double.IsFinite(x) ? x.ToString("0.###", CultureInfo.InvariantCulture) : "";
@@ -163,6 +172,7 @@ public sealed class SnapshotExporter : ISnapshotExporter
     private static string FormatUptime(double? sec)
     {
         if (sec is not double s || !double.IsFinite(s) || s < 0) return "不可用 N/A";
+        if (s > TimeSpan.MaxValue.TotalSeconds) return "不可用 N/A";
         var t = TimeSpan.FromSeconds(s);
         return t.TotalDays >= 1 ? t.ToString(@"d\.hh\:mm") : t.ToString(@"hh\:mm");
     }

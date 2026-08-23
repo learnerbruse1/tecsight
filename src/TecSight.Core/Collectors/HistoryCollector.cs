@@ -69,7 +69,7 @@ public sealed class HistoryCollector : ISnapshotCollector
     /// <summary>去掉历史中不需要的列表（完整传感器/SMART/进程），只留标量与曲线所需 GPU 传感器。</summary>
     public static LiveMetrics Slim(LiveMetrics m) => m with
     {
-        Sensors = m.Sensors.Where(s => SparkSensorNames.Contains(s.SensorName)).ToList(),
+        Sensors = (m.Sensors ?? []).Where(s => SparkSensorNames.Contains(s.SensorName)).ToList(),
         SmartAttributes = [],
         Processes = [],
     };

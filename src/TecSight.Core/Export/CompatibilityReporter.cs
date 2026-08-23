@@ -63,5 +63,5 @@ public static class CompatibilityReporter
     private static int Found(double? v) => v is double x && double.IsFinite(x) ? 1 : 0;
 
     private static void Row(StringBuilder sb, string label, int found, string? detail)
-        => sb.AppendLine($"  [{(found > 0 ? "OK" : "--")}] {label}: {detail ?? "not detected"}");
+        => sb.AppendLine($"  [{(found > 0 ? "OK" : "--")}] {label}: {detail ?? (found > 0 ? "detected" : "not detected")}");
 }

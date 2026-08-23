@@ -57,6 +57,19 @@ public class SnapshotExporterTests
 
         Assert.Contains("不可用 N/A", txt);
     }
+
+    [Fact]
+    public void ExportTxt_HugeUptime_ShowsN_A_AndDoesNotThrow()
+    {
+        var snap = new Snapshot(
+            DateTimeOffset.UtcNow,
+            new HardwareInventory(),
+            new LiveMetrics { Timestamp = DateTimeOffset.UtcNow, SystemUptimeSeconds = double.MaxValue });
+
+        var txt = new SnapshotExporter().ExportTxt(snap);
+
+        Assert.Contains("不可用 N/A", txt);
+    }
 }
 public class SnapshotExporterDetailsTests
 {
@@ -304,6 +317,7 @@ public class SnapshotExporterHtmlTests
 
     [Theory]
     [InlineData("1073741824", "1.0 GB")]
+    [InlineData("0", "N/A")]
     [InlineData("not-a-number", "N/A")]
     public void ExportHtml_MemoryCapacityString_IsParsedOrN_A(string capacity, string expected)
     {

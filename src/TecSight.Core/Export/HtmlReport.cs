@@ -29,7 +29,9 @@ public static class HtmlReport
         Row(sb, "系统", $"{inv.OsCaption} {inv.OsVersion} {inv.OsArchitecture} {inv.FirmwareType}".Trim());
         Row(sb, "安装 / 启动", $"{inv.OsInstallDate} / {inv.LastBootTime}".Trim());
         Row(sb, "CPU", string.Join("; ", inv.Cpus.Select(c => $"{c.Name}（{c.CoreCount}核/{c.LogicalProcessorCount}线程）")));
-        Row(sb, "内存", $"{inv.MemoryModules.Count} 条 / {Gb(inv.MemoryModules.Sum(x => long.TryParse(x.CapacityBytes, out var b) ? b : 0))}（使用 {Pct(m.MemoryUsagePercent)}）");
+        var memoryTotalBytes = inv.MemoryModules.Sum(x => long.TryParse(x.CapacityBytes, out var b) ? b : 0);
+        var memoryText = inv.MemoryModules.Count > 0 && memoryTotalBytes > 0 ? Gb(memoryTotalBytes) : "N/A";
+        Row(sb, "内存", $"{inv.MemoryModules.Count} 条 / {memoryText}（使用 {Pct(m.MemoryUsagePercent)}）");
         Row(sb, "磁盘", string.Join("; ", inv.Disks.Select(d => $"{d.Model} {Gb(d.CapacityBytes)}（{d.MediaType} {d.BusType}）")));
         Row(sb, "显卡", string.Join("; ", inv.Gpus.Select(g => g.Name)));
         if (inv.Battery is { } bat)
@@ -140,12 +142,15 @@ public static class HtmlReport
     private static string Bps(double? v) => FormatUtil.Bps(v, "N/A");
     private static string Gb(double? b) => FormatUtil.Gb(b, "N/A");
     private static string Gb(long? b) => FormatUtil.Gb(b, "N/A");
-    private static string Gb(string? s) => long.TryParse(s, out var v) ? (v / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : "N/A";
+    private static string Gb(string? s) => long.TryParse(s, out var v) && v > 0
+        ? (v / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture) + " GB"
+        : "N/A";
     private static string Wh(double? v) => FormatUtil.Wh(v, "N/A");
     private static string Volt(double? v) => v is double x && double.IsFinite(x) ? x.ToString("0.00", CultureInfo.InvariantCulture) + " V" : "N/A";
     private static string Up(double? s)
     {
         if (s is not double v || !double.IsFinite(v) || v < 0) return "N/A";
+        if (v > TimeSpan.MaxValue.TotalSeconds) return "N/A";
         var t = TimeSpan.FromSeconds(v);
         return t.TotalDays >= 1 ? t.ToString(@"d\.hh\:mm") : t.ToString(@"hh\:mm");
     }

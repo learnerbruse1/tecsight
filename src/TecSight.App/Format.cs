@@ -18,12 +18,13 @@ public static class Format
     public static string Uptime(double? seconds, string lang)
     {
         if (seconds is not double s || !double.IsFinite(s) || s < 0) return "—";
+        if (s > TimeSpan.MaxValue.TotalSeconds) return "—";
         var t = TimeSpan.FromSeconds(s);
         var zh = lang == "zh";
         if (t.TotalDays >= 1) return zh ? $"{t.Days} 天 {t.Hours} 小时" : $"{t.Days}d {t.Hours}h";
         if (t.TotalHours >= 1) return zh ? $"{t.Hours} 小时 {t.Minutes} 分" : $"{t.Hours}h {t.Minutes}m";
         if (t.TotalMinutes >= 1) return zh ? $"{Math.Max(1, t.Minutes)} 分" : $"{Math.Max(1, t.Minutes)}m";
         // 不足 1 分钟：按秒显示，避免把 30 秒显示成"1 分"
-        return zh ? $"{Math.Max(1, (int)t.TotalSeconds)} 秒" : $"{Math.Max(1, (int)t.TotalSeconds)}s";
+        return zh ? $"{Math.Max(0, (int)t.TotalSeconds)} 秒" : $"{Math.Max(0, (int)t.TotalSeconds)}s";
     }
 }

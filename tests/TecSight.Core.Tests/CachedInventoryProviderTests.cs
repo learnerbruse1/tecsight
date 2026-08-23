@@ -45,6 +45,21 @@ public class CachedInventoryProviderTests
     }
 
     [Fact]
+    public void SetTtl_AppliesToNextCapture()
+    {
+        var inner = new CountingProvider();
+        var cached = new CachedInventoryProvider(inner, TimeSpan.FromMinutes(10));
+
+        _ = cached.Capture();
+        cached.SetTtl(TimeSpan.FromMilliseconds(50));
+        Thread.Sleep(120);
+        var after = cached.Capture();
+
+        Assert.Equal("PC-2", after.ComputerName);
+        Assert.Equal(2, inner.Calls);
+    }
+
+    [Fact]
     public void Capture_InnerReturnsNull_StoresEmptyInventory()
     {
         var inner = new NullInventoryProvider();
@@ -82,9 +97,78 @@ public class CachedInventoryProviderTests
         }
     }
 
+    [Fact]
+    public void Capture_AfterTtl_WhenInnerThrows_ReturnsLastGoodCache()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"tecsight-cache-throw-{Guid.NewGuid():N}.json");
+        try
+        {
+            var seed = new CachedInventoryProvider(new CountingProvider(), TimeSpan.FromMilliseconds(50), path);
+            _ = seed.Capture();
+
+            var target = new CachedInventoryProvider(new ThrowingInventoryProvider(), TimeSpan.FromMilliseconds(1), path);
+            Thread.Sleep(20);
+            var result = target.Capture();
+
+            Assert.Equal("PC-1", result.ComputerName);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Capture_LoadsCacheWithNullCollectionsAsEmptyLists()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"tecsight-cache-null-lists-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(path, """
+            {
+              "ComputerName": "PC-NULL",
+              "Cpus": [null],
+              "MemoryModules": null,
+              "Disks": null,
+              "Gpus": null,
+              "NetworkAdapters": null,
+              "NetworkConfigurations": null,
+              "LogicalDisks": null,
+              "WifiInterfaces": null,
+              "ProblemDevices": null,
+              "Displays": null,
+              "AudioDevices": null,
+              "UsbDevices": null,
+              "Keyboards": null,
+              "PointingDevices": null,
+              "Printers": null
+            }
+            """);
+
+            var cached = new CachedInventoryProvider(new CountingProvider(), TimeSpan.FromMinutes(10), path);
+            var result = cached.Capture();
+
+            Assert.Equal("PC-NULL", result.ComputerName);
+            Assert.Empty(result.Cpus);
+            Assert.Empty(result.MemoryModules);
+            Assert.Empty(result.Disks);
+            Assert.Empty(result.NetworkAdapters);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
     private sealed class NullInventoryProvider : IHardwareInventoryProvider
     {
         public string Name => "null";
         public HardwareInventory Capture() => null!;
+    }
+
+    private sealed class ThrowingInventoryProvider : IHardwareInventoryProvider
+    {
+        public string Name => "throwing";
+        public HardwareInventory Capture() => throw new InvalidOperationException("WMI unavailable");
     }
 }

@@ -18,27 +18,36 @@ public static class HardwareClassifier
 
     public static bool MatchesCpuHw(string name)
     {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+
+        // 先识别明确是 CPU 的命名（AMD APU 会同时带 Radeon/Graphics，仍应算 CPU）。
+        if (ContainsAny(name, "CPU", "Core", "Package") || name.Contains("Ryzen", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // 再排除 GPU/网络/控制器等明显不是 CPU 的硬件。
         if (ContainsAny(name,
                 "Ethernet", "Network", "Wi-Fi", "Wireless", "Bluetooth", "NDIS",
-                "Realtek", "ASIX", "Controller", "Adapter"))
+                "Realtek", "ASIX", "Controller", "Adapter",
+                "Radeon", "Graphics", "NVIDIA", "RTX", "GTX", "GPU", "Arc"))
         {
             return false;
         }
-        return name.Contains("CPU", StringComparison.OrdinalIgnoreCase)
-               || name.Contains("Intel", StringComparison.OrdinalIgnoreCase)
-               || name.Contains("AMD", StringComparison.OrdinalIgnoreCase)
-               || name.Contains("Core", StringComparison.OrdinalIgnoreCase)
-               || name.Contains("Package", StringComparison.OrdinalIgnoreCase);
+
+        return name.Contains("Intel", StringComparison.OrdinalIgnoreCase)
+               || name.Contains("AMD", StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool MatchesGpuHw(string name) =>
-        name.Contains("GPU", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("RTX", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("GTX", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Graphics", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Arc", StringComparison.OrdinalIgnoreCase);
+        !string.IsNullOrWhiteSpace(name)
+        && (name.Contains("GPU", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("RTX", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("GTX", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Graphics", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Arc", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// 判断是否为虚拟/软件网络适配器（VPN、TAP、虚拟交换机、蓝牙 PAN、NDIS 过滤器等）。

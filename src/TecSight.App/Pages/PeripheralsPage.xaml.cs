@@ -17,9 +17,12 @@ public partial class PeripheralsPage : UserControl
          "bluetooth", "printer", "cardreader", "gamepad", "phone", "hub", "input", "usb", "other"];
 
     private MainViewModel? _vm;
+    private IReadOnlyList<PeripheralDevice>? _lastDevices;
+    private string _lastLanguage = "";
     private DateTimeOffset _lastScan = DateTimeOffset.MinValue;
     private bool _scanning;
     private bool _pendingRefresh;
+    private readonly object _scanGate = new();
 
     public PeripheralsPage() => InitializeComponent();
 
@@ -27,25 +30,40 @@ public partial class PeripheralsPage : UserControl
     public void Update(MainViewModel vm)
     {
         _vm = vm;
+        if (_lastDevices is null)
+        {
+            CountText.Text = $"{vm.Loc["Peripheral.Count"]} {vm.Loc["Common.NotAvailable"]}";
+        }
         MaybeScanAsync();
+        if (_lastDevices is not null && !string.Equals(_lastLanguage, vm.Loc.CurrentLanguage, StringComparison.Ordinal))
+        {
+            Show(vm, _lastDevices);
+        }
     }
 
     private void Refresh_Click(object sender, RoutedEventArgs e)
     {
-        _lastScan = DateTimeOffset.MinValue;
+        lock (_scanGate)
+        {
+            _lastScan = DateTimeOffset.MinValue;
+        }
         MaybeScanAsync();
     }
 
     private void MaybeScanAsync()
     {
         if (_vm is null) return;
-        if (_scanning)
+        lock (_scanGate)
         {
-            _pendingRefresh = true; // 扫描进行中再点刷新：标记待办，当前扫描完成后立即再扫一次
-            return;
+            if (_scanning)
+            {
+                _pendingRefresh = true; // 扫描进行中再点刷新：标记待办，当前扫描完成后立即再扫一次
+                return;
+            }
+            if (DateTimeOffset.UtcNow - _lastScan < TimeSpan.FromSeconds(AppSettings.PeripheralScanSeconds)) return;
+            _scanning = true;
         }
-        if (DateTimeOffset.UtcNow - _lastScan < TimeSpan.FromSeconds(AppSettings.PeripheralScanSeconds)) return;
-        _scanning = true;
+
         _ = Task.Run(() =>
         {
             IReadOnlyList<PeripheralDevice>? devices = null;
@@ -59,8 +77,11 @@ public partial class PeripheralsPage : UserControl
             }
             finally
             {
-                _scanning = false;
-                _lastScan = DateTimeOffset.UtcNow; // 成功或失败都推进节流，避免退化为每秒扫描
+                lock (_scanGate)
+                {
+                    _scanning = false;
+                    _lastScan = DateTimeOffset.UtcNow; // 成功或失败都推进节流，避免退化为每秒扫描
+                }
             }
             if (devices is not null && !Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
             {
@@ -74,24 +95,42 @@ public partial class PeripheralsPage : UserControl
                     // 窗口在检查与投递之间关闭等竞态：忽略
                 }
             }
-            if (_pendingRefresh)
+
+            bool refreshPending;
+            lock (_scanGate)
             {
-                _pendingRefresh = false;
-                _lastScan = DateTimeOffset.MinValue;
-                MaybeScanAsync();
+                refreshPending = _pendingRefresh;
+                if (refreshPending)
+                {
+                    _pendingRefresh = false;
+                    _lastScan = DateTimeOffset.MinValue;
+                }
             }
+            if (refreshPending) MaybeScanAsync();
         });
     }
 
     private void Show(MainViewModel vm, IReadOnlyList<PeripheralDevice> devices)
     {
-        _lastScan = DateTimeOffset.UtcNow;
+        _lastDevices = devices;
+        _lastLanguage = vm.Loc.CurrentLanguage;
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var merged = new List<PeripheralDevice>();
         foreach (var d in devices.Concat(PeripheralProbe.FromInventory(vm.Snapshot.Inventory)))
         {
-            var key = d.Category + "|" + d.Name + "|" + d.Manufacturer + "|" + d.PnpDeviceId;
-            if (seen.Add(key)) merged.Add(d);
+            if (!string.IsNullOrWhiteSpace(d.PnpDeviceId))
+            {
+                var key = BuildExactKey(d);
+                if (seen.Add(key)) merged.Add(d);
+            }
+            else if (merged.Any(x => SoftDeviceMatch(x, d)))
+            {
+                continue; // 硬件清单中的无 PNP ID 项，如果与已扫描设备同型号则去重
+            }
+            else
+            {
+                merged.Add(d);
+            }
         }
 
         Groups.ItemsSource = merged
@@ -103,18 +142,43 @@ public partial class PeripheralsPage : UserControl
             .ToList();
         CountText.Text = $"{vm.Loc["Peripheral.Count"]} {merged.Count}  ·  {vm.Loc["Peripheral.UpdatedAt"]} {DateTime.Now:HH:mm:ss}";
         EmptyText.Text = vm.Loc["Peripheral.None"];
-        EmptyText.Visibility = merged.Count == 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+            EmptyText.Visibility = merged.Count == 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+    }
+
+    private static string BuildExactKey(PeripheralDevice d) => d.PnpDeviceId!.Trim().ToUpperInvariant();
+
+    /// <summary>
+    /// 用于无 PNP ID 的硬件清单设备与已扫描设备去重：类别和名称必须一致；
+    /// 仅当双方都有厂商信息且不一致时才认为不是同一设备，避免 PnP/WMI 厂商字段缺失造成重复。
+    /// </summary>
+    private static bool SoftDeviceMatch(PeripheralDevice a, PeripheralDevice b)
+    {
+        if (!string.Equals(a.Category, b.Category, StringComparison.OrdinalIgnoreCase)) return false;
+        if (!string.Equals(a.Name?.Trim(), b.Name?.Trim(), StringComparison.OrdinalIgnoreCase)) return false;
+
+        var ma = a.Manufacturer?.Trim();
+        var mb = b.Manufacturer?.Trim();
+        return string.IsNullOrEmpty(ma)
+               || string.IsNullOrEmpty(mb)
+               || string.Equals(ma, mb, StringComparison.OrdinalIgnoreCase);
     }
 
     private static PeripheralItem BuildItem(PeripheralDevice d, LocalizationManager loc)
     {
         string Un() => loc["Peripheral.Unavailable"];
+        var status = d.Status;
+        if (d.Category == "network" && int.TryParse(d.Status, out var netStatus))
+        {
+            var key = $"Detail.NetStatus.{netStatus}";
+            var text = loc[key];
+            status = text == key ? loc["Detail.NetStatus.Unknown"] : text;
+        }
 
         var details = new List<PeripheralField>
         {
             new(loc["Detail.Manufacturer"], d.Manufacturer ?? Un()),
             new(loc["Detail.Type"], d.PnpClass ?? Un()),
-            new(loc["Detail.Status"], d.Status ?? Un()),
+            new(loc["Detail.Status"], status ?? Un()),
             new(loc["Peripheral.Resolution"], d.Resolution ?? Un()),
             new(loc["Peripheral.RefreshRate"], d.RefreshRate.HasValue ? d.RefreshRate.Value.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " Hz" : Un()),
             new(loc["Detail.Serial"], d.SerialNumber ?? Un()),
@@ -142,7 +206,7 @@ public partial class PeripheralsPage : UserControl
         var summary = new List<string>();
         if (!string.IsNullOrWhiteSpace(d.Detail)) summary.Add(d.Detail!);
         if (!string.IsNullOrWhiteSpace(d.Manufacturer)) summary.Add(d.Manufacturer!);
-        if (!string.IsNullOrWhiteSpace(d.Status)) summary.Add(d.Status!);
+        if (!string.IsNullOrWhiteSpace(status)) summary.Add(status);
         if (!string.IsNullOrWhiteSpace(d.PnpClass)) summary.Add(d.PnpClass!);
 
         return new PeripheralItem(d.Name ?? "?", string.Join(" · ", summary), details);

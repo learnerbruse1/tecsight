@@ -23,7 +23,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public HistoryCollector Collector { get; }
     public ISnapshotExporter Exporter { get; } = new SnapshotExporter();
 
-    /// <summary>软件版本（如 1.2.0）。</summary>
+    /// <summary>软件版本（如 2.0.0）。</summary>
     public string AppVersion { get; } = (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)) ?? "?";
 
     private Snapshot _snapshot = new(DateTimeOffset.MinValue, new HardwareInventory(), new LiveMetrics { Timestamp = DateTimeOffset.MinValue });

@@ -46,9 +46,10 @@ public static class WlanInfoProvider
         var result = new List<WifiInterfaceInfo>();
         foreach (var iface in NativeWifi.EnumerateInterfaces())
         {
+            if (HardwareClassifier.IsVirtualNetworkAdapter(iface.Description)) continue;
             var state = InterfaceStateText(iface.State);
             var (action, conn) = NativeWifi.GetCurrentConnection(iface.Id);
-            if (action == ActionResult.Success)
+            if (action == ActionResult.Success && conn is not null)
             {
                 var bssid = FormatNetworkIdentifier(conn.Bssid);
                 channels.TryGetValue(bssid ?? "", out var channel);
@@ -104,9 +105,13 @@ public static class WlanInfoProvider
 
             using var process = Process.Start(psi);
             if (process is null) return [];
+            if (!process.WaitForExit(TimeSpan.FromSeconds(15)))
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                return [];
+            }
             var output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-            return Parse(output);
+            return Parse(output).Where(w => !HardwareClassifier.IsVirtualNetworkAdapter(w.Name)).ToList();
         }
         catch
         {
@@ -174,6 +179,7 @@ public static class WlanInfoProvider
             var line = raw.Trim();
             if (line.Length == 0) continue;
             var idx = line.IndexOf(':');
+            if (idx < 0) idx = line.IndexOf('：');
             if (idx < 0) continue;
             var label = line[..idx].Trim();
             var value = line[(idx + 1)..].Trim();

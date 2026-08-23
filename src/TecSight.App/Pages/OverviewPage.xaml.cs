@@ -16,7 +16,13 @@ public partial class OverviewPage : UserControl
         var inv = vm.Snapshot.Inventory;
         var loc = vm.Loc;
 
-        UpdatedText.Text = $"{loc["Overview.UpdatedAt"]} {m.Timestamp:HH:mm:ss}";
+        UpdatedText.Text = m.Timestamp == DateTimeOffset.MinValue
+            ? $"{loc["Overview.UpdatedAt"]} {loc["Common.NotAvailable"]}"
+            : $"{loc["Overview.UpdatedAt"]} {m.Timestamp:HH:mm:ss}";
+        var interval = AppSettings.RefreshIntervalSeconds;
+        RefreshText.Text = loc.CurrentLanguage == "zh"
+            ? $"{loc["Overview.Refreshing"]}（{interval:0.#} 秒）"
+            : $"{loc["Overview.Refreshing"]} ({interval:0.#}s)";
 
         var cpu = inv.Cpus.FirstOrDefault();
         var gpu = HardwareClassifier.PickPrimaryGpu(inv.Gpus);
@@ -38,7 +44,7 @@ public partial class OverviewPage : UserControl
             ? $"{inv.MemoryModules.Count}×" + (string.IsNullOrEmpty(memType) ? "" : " " + memType)
             : null;
         var memSubtitle = m.MemoryTotalBytes.HasValue
-            ? $"{Format.Bytes(m.MemoryTotalBytes)}{(memDetail is null ? "" : $"  ({memDetail})")}"
+            ? $"{Format.Bytes(m.MemoryTotalBytes)}{(memDetail is null ? "" : $"  ({memDetail.Trim()})")}"
             : loc["Common.NotAvailable"];
 
         var cpuTemp = PreferNamedTemp(m.Sensors, HardwareClassifier.MatchesCpuHw, "CPU Package");
@@ -88,7 +94,11 @@ public partial class OverviewPage : UserControl
     private static NetworkAdapterInfo? PickPrimaryNetwork(IReadOnlyList<NetworkAdapterInfo> adapters)
     {
         if (adapters.Count == 0) return null;
-        return adapters.OrderByDescending(ScoreNetworkAdapter).First();
+        var real = adapters
+            .Where(a => !HardwareClassifier.IsVirtualNetworkAdapter(a.Name, a.AdapterType))
+            .ToList();
+        var candidates = real.Count > 0 ? real : adapters;
+        return candidates.OrderByDescending(ScoreNetworkAdapter).First();
     }
 
     private static int ScoreNetworkAdapter(NetworkAdapterInfo a)

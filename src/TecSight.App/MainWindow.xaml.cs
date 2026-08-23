@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _timer;
     private readonly PerformanceMetricsProvider _metricsProvider = new();
     private readonly LibreHardwareSensorProvider _sensorProvider = new();
+    private readonly CachedInventoryProvider _inventoryProvider;
     private readonly object _collectGate = new();
     private bool _collecting;
     private string _realTitle = "TecSight";
@@ -53,12 +54,14 @@ public partial class MainWindow : Window
 
         ApplySavedWindowState();
 
+        _inventoryProvider = new CachedInventoryProvider(
+            new WmiInventoryProvider(),
+            TimeSpan.FromSeconds(AppSettings.InventoryRefreshSeconds),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TecSight", "inventory-cache.json"));
+
         var collector = new HistoryCollector(
             new SnapshotCollector(
-                new CachedInventoryProvider(
-                    new WmiInventoryProvider(),
-                    TimeSpan.FromSeconds(AppSettings.InventoryRefreshSeconds),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TecSight", "inventory-cache.json")),
+                _inventoryProvider,
                 _metricsProvider,
                 _sensorProvider),
             capacity: 3600);
@@ -200,13 +203,14 @@ public partial class MainWindow : Window
         if (dlg.ShowDialog() == true)
         {
             _timer.Interval = TimeSpan.FromSeconds(AppSettings.RefreshIntervalSeconds);
+            _inventoryProvider.SetTtl(TimeSpan.FromSeconds(AppSettings.InventoryRefreshSeconds));
             if (ThemeManager.IsDark != AppSettings.DarkTheme)
             {
                 ThemeManager.SetDark(AppSettings.DarkTheme);
                 ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
                 ApplyTitleBarTheme();
             }
-            if (!string.IsNullOrEmpty(AppSettings.Language) && _vm.Loc.CurrentLanguage != AppSettings.Language)
+            if (!string.IsNullOrEmpty(AppSettings.Language))
             {
                 _vm.Loc.CurrentLanguage = AppSettings.Language;
                 _realTitle = _vm.Loc["App.Title"];
@@ -293,17 +297,18 @@ public partial class MainWindow : Window
     /// <summary>在标题栏短暂显示状态提示后恢复真实标题（连续点击安全）。</summary>
     private void ShowTransientStatus(string message)
     {
-        if (_transientTimer is not null)
+        if (_transientTimer is null)
         {
-            _transientTimer.Stop();
+            _transientTimer = new DispatcherTimer();
+            _transientTimer.Tick += (_, _) =>
+            {
+                Title = _realTitle;
+                _transientTimer!.Stop();
+            };
         }
+        _transientTimer.Stop();
         Title = message;
-        _transientTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
-        _transientTimer.Tick += (_, _) =>
-        {
-            Title = _realTitle;
-            _transientTimer!.Stop();
-        };
+        _transientTimer.Interval = TimeSpan.FromSeconds(1.5);
         _transientTimer.Start();
     }
 
@@ -389,6 +394,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _timer.Stop();
+        _transientTimer?.Stop();
         _metricsProvider.Dispose();
         _sensorProvider.Dispose();
 
@@ -422,16 +428,18 @@ public partial class MainWindow : Window
     /// <summary>恢复上次窗口位置/大小（防止还原到屏幕外）。</summary>
     private void ApplySavedWindowState()
     {
-        if (double.IsNaN(AppSettings.WindowLeft)) return;
+        if (double.IsNaN(AppSettings.WindowLeft) || double.IsNaN(AppSettings.WindowTop)) return;
         var w = AppSettings.WindowWidth;
         var h = AppSettings.WindowHeight;
         var x = AppSettings.WindowLeft;
         var y = AppSettings.WindowTop;
-        if (w < 200 || h < 150) return;
+        if (!double.IsFinite(w) || !double.IsFinite(h) || w < 200 || h < 150) return;
         var sl = SystemParameters.VirtualScreenLeft;
         var st = SystemParameters.VirtualScreenTop;
         var sw = SystemParameters.VirtualScreenWidth;
         var sh = SystemParameters.VirtualScreenHeight;
+        w = Math.Min(w, sw);
+        h = Math.Min(h, sh);
         if (x + 40 > sl + sw || y + 40 > st + sh || x + w < sl + 40 || y + h < st + 40) return;
         Left = x;
         Top = y;

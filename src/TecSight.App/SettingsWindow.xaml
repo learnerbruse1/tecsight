@@ -50,7 +50,7 @@
             </ComboBox>
 
             <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding [Settings.Language]}" VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <ComboBox x:Name="LanguageBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,12" SelectedValuePath="Tag">
+            <ComboBox x:Name="LanguageBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,12" SelectedValuePath="Tag" SelectionChanged="LanguageBox_SelectionChanged">
                 <ComboBoxItem Content="中文" Tag="zh"/>
                 <ComboBoxItem Content="English" Tag="en"/>
             </ComboBox>

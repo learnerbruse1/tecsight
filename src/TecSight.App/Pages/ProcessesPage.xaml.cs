@@ -12,6 +12,13 @@ public partial class ProcessesPage : UserControl
 
     public void Update(MainViewModel vm)
     {
+        if (vm.Snapshot.CapturedAt == DateTimeOffset.MinValue)
+        {
+            ProcList.ItemsSource = null;
+            TotalText.Text = $"{vm.Loc["Process.Total"]} {vm.Loc["Common.NotAvailable"]}";
+            return;
+        }
+
         ProcList.ItemsSource = vm.Snapshot.Metrics.Processes
             .Select(p => new ProcRow(p.ProcessId is int pid ? $"{p.Name} ({pid})" : p.Name, p.CpuPercent.HasValue ? $"{p.CpuPercent.Value.ToString("0.0", CultureInfo.InvariantCulture)}%" : "…", Format.Bytes(p.WorkingSetBytes)))
             .ToList();

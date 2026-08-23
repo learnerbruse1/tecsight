@@ -1,4 +1,4 @@
-# TecSight v1.2.0 — Release Notes
+# TecSight v2.0.0 — Release Notes
 
 > 一款 Windows 硬件体检工具：查看设备**所有硬件清单**与**实时使用/运行情况**。跨硬件兼容、免安装、免管理员。
 > A Windows hardware inspector: see your device's **full hardware inventory** and **live usage/status**. Cross-hardware compatible, no install, no admin.
@@ -15,14 +15,14 @@
 ## 兼容性 / Compatibility
 - Windows 10/11 x64，自包含单文件，免安装免管理员
 - 数据源不可用时优雅降级为「不可用」，无编造数据
-- 0 警告构建，99 项单元测试
+- 0 警告构建，213 项单元测试
 
 ## 下载 / Download
-- [TecSight-Setup-1.2.0-Windows-x64.exe](installer/Output/TecSight-Setup-1.2.0-Windows-x64.exe)（中英双语安装向导）
+- [TecSight-Setup-2.0.0-Windows-x64.exe](installer/Output/TecSight-Setup-2.0.0-Windows-x64.exe)（中英双语安装向导）
 - 或直接运行 `publish/TecSight.App.exe`（自包含单文件）
 
 ## 变更摘要 / Changelog Summary
 本版含性能优化（CPU 占用约降 60%）、深色模式全面主题化、传感器噪音过滤开关、记住上次页面、多项数据准确性修复（网卡速率哨兵值/区域格式/导出 N/A 等）。详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 致谢 / Credits
-CrystalDiskInfo / CPU-Z / GPU-Z / HWiNFO / LibreHardwareMonitor（MPL-2.0，见 THIRD-PARTY-NOTICES.md）
+CrystalDiskInfo / CPU-Z / GPU-Z / HWiNFO / LibreHardwareMonitor（MPL-2.0）/ HidSharp（Apache-2.0）/ Vanara（MIT）/ ManagedNativeWifi（MIT）；详见 THIRD-PARTY-NOTICES.md

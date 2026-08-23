@@ -29,16 +29,32 @@ public static class AppSettings
     {
         try
         {
+            var tmpPath = FilePath + ".tmp";
+            try
+            {
+                if (!File.Exists(FilePath) && File.Exists(tmpPath))
+                {
+                    File.Move(tmpPath, FilePath);
+                }
+                else if (File.Exists(FilePath) && File.Exists(tmpPath))
+                {
+                    File.Delete(tmpPath);
+                }
+            }
+            catch
+            {
+                // 临时文件清理失败不应阻止读取已存在的主设置文件
+            }
             if (!File.Exists(FilePath)) return;
             var j = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath), JsonOptions);
             if (j is null) return;
-            Language = j.Language ?? "";
+            Language = j.Language is "zh" or "en" ? j.Language : "";
             DarkTheme = j.DarkTheme;
             HideNetworkNoise = j.HideNetworkNoise;
             RefreshIntervalSeconds = j.RefreshIntervalSeconds is >= 1 and <= 60 ? j.RefreshIntervalSeconds : 1;
             PeripheralScanSeconds = j.PeripheralScanSeconds is >= 5 and <= 300 ? j.PeripheralScanSeconds : 10;
             InventoryRefreshSeconds = j.InventoryRefreshSeconds is >= 30 and <= 600 ? j.InventoryRefreshSeconds : 60;
-            LastPage = j.LastPage;
+            LastPage = Enum.IsDefined(typeof(AppPage), j.LastPage) ? j.LastPage : 0;
             WindowLeft = j.WindowLeft;
             WindowTop = j.WindowTop;
             WindowWidth = j.WindowWidth > 0 ? j.WindowWidth : 1100;
@@ -73,7 +89,8 @@ public static class AppSettings
         try
         {
             Directory.CreateDirectory(Dir);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(new Settings
+            var tmp = FilePath + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(new Settings
             {
                 Language = Language,
                 DarkTheme = DarkTheme,
@@ -88,6 +105,7 @@ public static class AppSettings
                 WindowHeight = WindowHeight,
                 WindowMaximized = WindowMaximized,
             }, JsonOptions));
+            File.Move(tmp, FilePath, overwrite: true);
         }
         catch
         {

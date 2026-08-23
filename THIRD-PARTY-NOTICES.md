@@ -10,6 +10,26 @@ TecSight 集成了以下第三方开源组件：
 - MPL-2.0 全文: <https://www.mozilla.org/en-US/MPL/2.0/>
 - 说明：LibreHardwareMonitor 源文件头部的许可声明予以保留；本项目未修改其文件，仅以 NuGet 包形式集成。
 
+LibreHardwareMonitor 的以下传递依赖同样随发布产物分发：
+
+## BlackSharp.Core
+- 来源 Source: <https://github.com/Blacktempel/BlackSharp>
+- 许可证 License: **MPL-2.0**
+- 版权 Copyright: Florian K.
+- 用途 Used for: LibreHardwareMonitor 依赖的通用基础组件
+
+## DiskInfoToolkit
+- 来源 Source: <https://github.com/Blacktempel/DiskInfoToolkit>
+- 许可证 License: **MPL-2.0**
+- 版权 Copyright: Florian K.
+- 用途 Used for: 磁盘信息与 SMART 数据读取
+
+## RAMSPDToolkit-NDD
+- 来源 Source: <https://github.com/Blacktempel/RAMSPDToolkit>
+- 许可证 License: **MPL-2.0**
+- 版权 Copyright: Florian K.
+- 用途 Used for: 内存 SPD 与温度数据读取
+
 ## HidSharp
 - 来源 Source: <https://software.seekye.com/hidsharp>
 - 许可证 License: **Apache License 2.0**

@@ -84,6 +84,39 @@ There is 1 interface on the system:
     }
 
     [Fact]
+    public void Parse_ChineseOutput_WithFullWidthColon_ExtractsConnectionDetails()
+    {
+        const string output = """
+系统上有 1 个接口：
+
+    名称                   ： WLAN
+    状态                   ： 已连接
+    SSID                   ： 我的网络
+    BSSID                  ： aa:bb:cc:dd:ee:ff
+    无线电类型             ： 802.11ax
+    身份验证               ： WPA2-个人
+    连接模式               ： 自动连接
+    信道                   ： 36
+    接收速率(Mbps)         ： 866
+    传输速率(Mbps)         ： 866
+    信号                   ： 90%
+""";
+
+        var w = Assert.Single(WlanInfoProvider.Parse(output));
+
+        Assert.Equal("WLAN", w.Name);
+        Assert.Equal("已连接", w.State);
+        Assert.Equal("我的网络", w.Ssid);
+        Assert.Equal("802.11ax", w.RadioType);
+        Assert.Equal("WPA2-个人", w.Authentication);
+        Assert.Equal("自动连接", w.ConnectionMode);
+        Assert.Equal(36, w.Channel);
+        Assert.Equal(866, w.ReceiveRateMbps);
+        Assert.Equal(866, w.TransmitRateMbps);
+        Assert.Equal(90, w.SignalPercent);
+    }
+
+    [Fact]
     public void Parse_NoWirelessInterface_ReturnsEmpty()
     {
         var result = WlanInfoProvider.Parse("系统上没有无线接口。\r\nThere is no wireless interface on the system.");

@@ -10,7 +10,7 @@
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\tecsight.ico</ApplicationIcon>
-    <Version>1.2.0</Version>
+    <Version>2.0.0</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
   </PropertyGroup>
