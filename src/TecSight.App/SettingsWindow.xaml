@@ -1,0 +1,69 @@
+<Window x:Class="TecSight.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="TecSight Settings" Height="520" Width="470"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}">
+    <DockPanel Margin="18">
+        <TextBlock DockPanel.Dock="Top" Text="{Binding [Settings.Title]}" FontSize="18" FontWeight="Bold" Margin="0,0,0,14"/>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button x:Name="CancelButton" Content="{Binding [Settings.Cancel]}" Width="90" Margin="0,0,8,0" Click="Cancel_Click"/>
+            <Button x:Name="SaveButton" Content="{Binding [Settings.Save]}" Width="90" Click="Save_Click"/>
+        </StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="170"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [Settings.RefreshInterval]}" VerticalAlignment="Center" Margin="0,0,8,12"/>
+            <ComboBox x:Name="RefreshIntervalBox" Grid.Row="0" Grid.Column="1" Margin="0,0,0,12" SelectedValuePath="Tag">
+                <ComboBoxItem Content="1s" Tag="1"/>
+                <ComboBoxItem Content="2s" Tag="2"/>
+                <ComboBoxItem Content="5s" Tag="5"/>
+                <ComboBoxItem Content="10s" Tag="10"/>
+            </ComboBox>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [Settings.PeripheralInterval]}" VerticalAlignment="Center" Margin="0,0,8,12"/>
+            <ComboBox x:Name="PeripheralIntervalBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,12" SelectedValuePath="Tag">
+                <ComboBoxItem Content="5s" Tag="5"/>
+                <ComboBoxItem Content="10s" Tag="10"/>
+                <ComboBoxItem Content="20s" Tag="20"/>
+                <ComboBoxItem Content="30s" Tag="30"/>
+            </ComboBox>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding [Settings.InventoryInterval]}" VerticalAlignment="Center" Margin="0,0,8,12"/>
+            <ComboBox x:Name="InventoryIntervalBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,12" SelectedValuePath="Tag">
+                <ComboBoxItem Content="30s" Tag="30"/>
+                <ComboBoxItem Content="60s" Tag="60"/>
+                <ComboBoxItem Content="120s" Tag="120"/>
+                <ComboBoxItem Content="300s" Tag="300"/>
+            </ComboBox>
+
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding [Settings.Language]}" VerticalAlignment="Center" Margin="0,0,8,12"/>
+            <ComboBox x:Name="LanguageBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,12" SelectedValuePath="Tag">
+                <ComboBoxItem Content="中文" Tag="zh"/>
+                <ComboBoxItem Content="English" Tag="en"/>
+            </ComboBox>
+
+            <CheckBox x:Name="DarkThemeBox" Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                      Content="{Binding [Settings.DarkTheme]}" Margin="0,0,0,12"/>
+
+            <CheckBox x:Name="NoiseFilterBox" Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                      Content="{Binding [Detail.HideNetworkNoise]}" Margin="0,0,0,12"/>
+
+            <TextBlock Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+                       Text="{Binding [Settings.Description]}"
+                       Foreground="{DynamicResource SubTextBrush}" TextWrapping="Wrap"/>
+        </Grid>
+    </DockPanel>
+</Window>

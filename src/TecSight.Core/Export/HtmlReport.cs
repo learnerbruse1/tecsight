@@ -33,25 +33,25 @@ public static class HtmlReport
         Row(sb, "磁盘", string.Join("; ", inv.Disks.Select(d => $"{d.Model} {Gb(d.CapacityBytes)}（{d.MediaType} {d.BusType}）")));
         Row(sb, "显卡", string.Join("; ", inv.Gpus.Select(g => g.Name)));
         if (inv.Battery is { } bat)
-            Row(sb, "电池", $"{bat.DeviceName} 设计 {Wh(bat.DesignedCapacityWh)} 满充 {Wh(bat.FullChargeCapacityWh)} 循环 {bat.CycleCount?.ToString() ?? "N/A"} 化学 {bat.Chemistry ?? "N/A"} 健康度 {HealthPct(bat)}");
+            Row(sb, "电池", $"{bat.DeviceName} 设计 {Wh(bat.DesignedCapacityWh)} 满充 {Wh(bat.FullChargeCapacityWh)} 循环 {bat.CycleCount?.ToString() ?? "N/A"} 化学 {bat.Chemistry ?? "N/A"} 设计电压 {Volt(bat.DesignVoltageV)} 当前电压 {Volt(bat.CurrentVoltageV)} 健康度 {HealthPct(bat)}");
         Row(sb, "运行时长", Up(m.SystemUptimeSeconds));
         sb.AppendLine("</table>");
 
         sb.AppendLine("<h2>硬件清单</h2>");
         Section(sb, "CPU", ["型号", "核心", "线程", "架构", "插槽", "L2 缓存", "L3 缓存", "当前频率", "处理器 ID", "虚拟化"],
             inv.Cpus.Select(c => new[] { c.Name, c.CoreCount.ToString(), c.LogicalProcessorCount.ToString(), c.Architecture, c.SocketDesignation, (c.L2CacheKb.HasValue ? $"{c.L2CacheKb} KB" : "N/A"), (c.L3CacheKb.HasValue ? $"{c.L3CacheKb} KB" : "N/A"), (c.CurrentClockMhz.HasValue ? $"{c.CurrentClockMhz} MHz" : "N/A"), c.ProcessorId, Yn(c.VirtualizationFirmwareEnabled) }).ToList());
-        Section(sb, "内存模块", ["容量", "频率", "类型", "实际频率", "电压", "制造商", "序列号", "插槽"],
-            inv.MemoryModules.Select(x => new[] { Gb(x.CapacityBytes), $"{x.Speed} MHz", x.MemoryType, x.ConfiguredClockMhz, x.ConfiguredVoltageMv, x.Manufacturer, x.SerialNumber, x.DeviceLocator }).ToList());
+        Section(sb, "内存模块", ["容量", "频率", "类型", "实际频率", "电压", "制造商", "序列号", "插槽", "外形", "ECC"],
+            inv.MemoryModules.Select(x => new[] { Gb(x.CapacityBytes), $"{x.Speed} MHz", x.MemoryType, x.ConfiguredClockMhz, x.ConfiguredVoltageMv, x.Manufacturer, x.SerialNumber, x.DeviceLocator, x.FormFactor, Yn(x.Ecc) }).ToList());
         if (inv.MemoryTopology is { } mt)
             Section(sb, "内存拓扑", ["插槽总数", "已用插槽", "最大容量", "错误校正"],
                 [new[] { mt.TotalSlots?.ToString(), mt.UsedSlots?.ToString(), Gb(mt.MaxCapacityBytes), mt.ErrorCorrection }]);
-        Section(sb, "磁盘", ["型号", "容量", "介质", "总线", "固件", "健康度"],
-            inv.Disks.Select(d => new[] { d.Model, Gb(d.CapacityBytes), d.MediaType, d.BusType, d.FirmwareVersion, Hlth(d.Health) }).ToList());
+        Section(sb, "磁盘", ["型号", "容量", "介质", "总线", "固件", "序列号", "健康度"],
+            inv.Disks.Select(d => new[] { d.Model, Gb(d.CapacityBytes), d.MediaType, d.BusType, d.FirmwareVersion, d.SerialNumber, Hlth(d.Health) }).ToList());
         if (inv.LogicalDisks.Count > 0)
             Section(sb, "存储卷 / 分区", ["盘符", "卷标", "文件系统", "总容量", "可用"],
                 inv.LogicalDisks.Select(d => new[] { d.DeviceId, d.VolumeName, d.FileSystem, Gb(d.TotalBytes), Gb(d.FreeBytes) }).ToList());
-        Section(sb, "显卡", ["型号", "驱动", "驱动日期", "分辨率", "刷新率"],
-            inv.Gpus.Select(g => new[] { g.Name, g.DriverVersion, g.DriverDate,
+        Section(sb, "显卡", ["型号", "驱动", "驱动日期", "显存", "分辨率", "刷新率"],
+            inv.Gpus.Select(g => new[] { g.Name, g.DriverVersion, g.DriverDate, Gb(g.MemoryBytes),
                 (g.CurrentHorizontalResolution.HasValue ? $"{g.CurrentHorizontalResolution} × {g.CurrentVerticalResolution}" : null),
                 (g.CurrentRefreshRate.HasValue ? g.CurrentRefreshRate + " Hz" : null) }).ToList());
         if (inv.Motherboard is { } mb)
@@ -70,12 +70,12 @@ public static class HtmlReport
         if (inv.ProblemDevices.Count > 0)
             Section(sb, "问题设备", ["名称", "错误代码", "说明", "状态"],
                 inv.ProblemDevices.Select(p => new[] { p.Name, p.ErrorCode?.ToString(), p.ErrorDescription, p.Status }).ToList());
-        Section(sb, "网络适配器", ["名称", "MAC", "速率", "类型", "制造商", "驱动"],
-            inv.NetworkAdapters.Select(n => new[] { n.Name, n.MacAddress, LinkSpeed(n.SpeedBps), n.AdapterType, n.Manufacturer, n.DriverVersion }).ToList());
+        Section(sb, "网络适配器", ["名称", "MAC", "速率", "类型", "制造商", "驱动", "驱动日期"],
+            inv.NetworkAdapters.Select(n => new[] { n.Name, n.MacAddress, LinkSpeed(n.SpeedBps), n.AdapterType, n.Manufacturer, n.DriverVersion, n.DriverDate }).ToList());
         if (inv.WifiInterfaces.Count > 0)
-            Section(sb, "Wi-Fi", ["SSID", "状态", "信号", "信道", "无线电类型", "身份验证", "接收速率", "发送速率"],
+            Section(sb, "Wi-Fi", ["SSID", "BSSID", "状态", "信号", "信道", "无线电类型", "身份验证", "接收速率", "发送速率"],
                 inv.WifiInterfaces.Select(w => new[] {
-                    w.Ssid ?? w.Name, w.State,
+                    w.Ssid ?? w.Name, w.Bssid, w.State,
                     w.SignalPercent.HasValue ? w.SignalPercent.Value.ToString("0", CultureInfo.InvariantCulture) + "%" : null,
                     w.Channel?.ToString(), w.RadioType, w.Authentication,
                     w.ReceiveRateMbps.HasValue ? w.ReceiveRateMbps.Value.ToString("0", CultureInfo.InvariantCulture) + " Mbps" : null,
@@ -87,16 +87,17 @@ public static class HtmlReport
         Row(sb, "内存", $"{Pct(m.MemoryUsagePercent)}（{Gb(m.MemoryUsedBytes)} / {Gb(m.MemoryTotalBytes)}）");
         Row(sb, "磁盘 I/O", $"读 {Bps(m.DiskReadBytesPerSec)} / 写 {Bps(m.DiskWriteBytesPerSec)}");
         Row(sb, "网络", $"↓ {Bps(m.NetworkDownloadBps)} ↑ {Bps(m.NetworkUploadBps)}");
-        Row(sb, "GPU", $"{Pct(m.GpuUsagePercent)}（{string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {e.Percent.ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%"))}）");
+        Row(sb, "GPU", $"{Pct(m.GpuUsagePercent)}（{string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {FormatUtil.Pct(e.Percent, "N/A")}"))}）");
         Row(sb, "电池", $"{Pct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "充电中" : "")}");
         Row(sb, "进程", $"{m.Processes.Count} 个（共 {m.TotalProcessCount}）");
         sb.AppendLine("</table>");
 
         sb.AppendLine("<h2>其他设备</h2><table><tr><th>类别</th><th>数量</th><th>设备</th></tr>");
-        Row(sb, "显示器", inv.Displays.Count.ToString(), string.Join("；", inv.Displays.Select(d => $"{d.Manufacturer} {d.Name}".Trim())));
+        Row(sb, "显示器", inv.Displays.Count.ToString(), string.Join("；", inv.Displays.Select(d => $"{d.Manufacturer} {d.Name} {d.SerialNumber} {d.ManufactureYear}".Trim())));
         Row(sb, "音频", inv.AudioDevices.Count.ToString(), string.Join("；", inv.AudioDevices.Take(8).Select(a => a.Name)));
         Row(sb, "USB", inv.UsbDevices.Count.ToString(), string.Join("；", inv.UsbDevices.Take(8).Select(u => u.Name)));
-        Row(sb, "键盘 / 鼠标", $"{inv.Keyboards.Count} / {inv.PointingDevices.Count}", "");
+        Row(sb, "键盘 / 鼠标", $"{inv.Keyboards.Count} / {inv.PointingDevices.Count}",
+            $"{string.Join("；", inv.Keyboards.Take(8).Select(k => k.Name))} / {string.Join("；", inv.PointingDevices.Take(8).Select(m => m.Name))}");
         Row(sb, "打印机", inv.Printers.Count.ToString(), string.Join("；", inv.Printers.Select(p => p.Name)));
         sb.AppendLine("</table>");
 
@@ -105,7 +106,20 @@ public static class HtmlReport
             sb.AppendLine($"<tr><td>{H(s2.HardwareName)}</td><td>{H(s2.SensorName)}</td><td>{s2.Value?.ToString("0.#", CultureInfo.InvariantCulture) ?? "N/A"} {H(s2.Unit)}</td></tr>");
         if (m.Sensors.Count > 60) sb.AppendLine($"<tr><td colspan=\"3\">… 其余 {m.Sensors.Count - 60} 条</td></tr>");
         if (m.Sensors.Count == 0) sb.AppendLine("<tr><td colspan=\"3\">无传感器数据</td></tr>");
-        sb.AppendLine("</table></body></html>");
+        sb.AppendLine("</table>");
+
+        if (m.SmartAttributes.Count > 0)
+        {
+            sb.AppendLine("<h2>SMART 属性</h2><table><tr><th>磁盘</th><th>ID</th><th>名称</th><th>当前值</th><th>最差值</th><th>阈值</th><th>原始值</th></tr>");
+            foreach (var a in m.SmartAttributes.Take(60))
+            {
+                sb.AppendLine($"<tr><td>{H(a.DiskName)}</td><td>{a.Id}</td><td>{H(a.Name)}</td><td>{a.CurrentValue?.ToString("0", CultureInfo.InvariantCulture)}</td><td>{a.Worst?.ToString()}</td><td>{a.Threshold}</td><td>{H(a.RawValue)}</td></tr>");
+            }
+            if (m.SmartAttributes.Count > 60) sb.AppendLine($"<tr><td colspan=\"7\">… 其余 {m.SmartAttributes.Count - 60} 条</td></tr>");
+            sb.AppendLine("</table>");
+        }
+
+        sb.AppendLine("</body></html>");
         return sb.ToString();
     }
 
@@ -128,9 +142,10 @@ public static class HtmlReport
     private static string Gb(long? b) => FormatUtil.Gb(b, "N/A");
     private static string Gb(string? s) => long.TryParse(s, out var v) ? (v / 1073741824.0).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : "N/A";
     private static string Wh(double? v) => FormatUtil.Wh(v, "N/A");
+    private static string Volt(double? v) => v is double x && double.IsFinite(x) ? x.ToString("0.00", CultureInfo.InvariantCulture) + " V" : "N/A";
     private static string Up(double? s)
     {
-        if (s is not double v) return "N/A";
+        if (s is not double v || !double.IsFinite(v) || v < 0) return "N/A";
         var t = TimeSpan.FromSeconds(v);
         return t.TotalDays >= 1 ? t.ToString(@"d\.hh\:mm") : t.ToString(@"hh\:mm");
     }

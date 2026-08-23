@@ -57,9 +57,34 @@ public class CachedInventoryProviderTests
         Assert.Same(first, second);
     }
 
+    [Fact]
+    public void Capture_PersistsAndLoadsCacheFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"tecsight-cache-{Guid.NewGuid():N}.json");
+        try
+        {
+            var firstInner = new CountingProvider();
+            var first = new CachedInventoryProvider(firstInner, TimeSpan.FromMinutes(10), path);
+            _ = first.Capture();
+
+            Assert.True(File.Exists(path));
+
+            var secondInner = new CountingProvider();
+            var second = new CachedInventoryProvider(secondInner, TimeSpan.FromMinutes(10), path);
+            var loaded = second.Capture();
+
+            Assert.Equal("PC-1", loaded.ComputerName);
+            Assert.Equal(0, secondInner.Calls);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
     private sealed class NullInventoryProvider : IHardwareInventoryProvider
     {
         public string Name => "null";
-        public HardwareInventory? Capture() => null;
+        public HardwareInventory Capture() => null!;
     }
 }

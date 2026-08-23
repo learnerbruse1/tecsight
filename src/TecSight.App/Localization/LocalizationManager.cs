@@ -50,6 +50,16 @@ public sealed class LocalizationManager : INotifyPropertyChanged
                 Both("Common.ErrorLogged", "详情已写入日志。", "Details have been written to the log.");
         Both("Common.Copied", "✅ 已复制到剪贴板", "✅ Copied to clipboard");
         Both("Common.Theme", "切换深浅主题", "Toggle dark/light theme");
+        Both("Common.Settings", "设置", "Settings");
+        Both("Settings.Title", "设置", "Settings");
+        Both("Settings.RefreshInterval", "检测频率", "Refresh interval");
+        Both("Settings.PeripheralInterval", "外设扫描间隔", "Peripheral scan interval");
+        Both("Settings.InventoryInterval", "硬件清单刷新间隔", "Hardware inventory refresh interval");
+        Both("Settings.Language", "语言", "Language");
+        Both("Settings.DarkTheme", "深色主题", "Dark theme");
+        Both("Settings.Save", "保存", "Save");
+        Both("Settings.Cancel", "取消", "Cancel");
+        Both("Settings.Description", "设置实时指标刷新和外设扫描频率。", "Configure live metric refresh and peripheral scan frequency.");
 
         Both("Export.Json", "导出 JSON", "Export JSON");
         Both("Export.Txt", "导出 TXT", "Export TXT");
@@ -59,6 +69,10 @@ public sealed class LocalizationManager : INotifyPropertyChanged
                 Both("Export.Menu", "导出 ▾", "Export ▾");
         Both("Export.CsvHistory", "导出历史 CSV", "Export History CSV");
         Both("Export.Saved", "已导出：", "Exported: ");
+        Both("Export.FilterHtml", "HTML 文件 (*.html)|*.html", "HTML Files (*.html)|*.html");
+        Both("Export.FilterCsv", "CSV 文件 (*.csv)|*.csv", "CSV Files (*.csv)|*.csv");
+        Both("Export.FilterJson", "JSON 文件 (*.json)|*.json", "JSON Files (*.json)|*.json");
+        Both("Export.FilterTxt", "文本文件 (*.txt)|*.txt", "Text Files (*.txt)|*.txt");
 
         Both("Overview.Computer", "计算机", "Computer");
         Both("Overview.Cpu", "CPU 使用率", "CPU Usage");
@@ -285,6 +299,9 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Peripheral.DriverVersion", "驱动版本", "Driver Version");
         Both("Peripheral.Service", "服务", "Service");
         Both("Peripheral.DeviceId", "设备 ID", "Device ID");
+        Both("Peripheral.Resolution", "分辨率", "Resolution");
+        Both("Peripheral.RefreshRate", "刷新率", "Refresh Rate");
+        Both("Peripheral.Year", "生产年份", "Year");
 
         Both("Detail.Uuid", "UUID", "UUID");
         Both("Detail.ProductName", "产品名称", "Product Name");

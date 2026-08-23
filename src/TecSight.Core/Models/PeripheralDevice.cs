@@ -18,4 +18,8 @@ public sealed record PeripheralDevice(
     string? Service = null,
     string? DeviceId = null,
     int? ConfigManagerErrorCode = null,
-    string? HardwareId = null);
+    string? HardwareId = null,
+    string? Resolution = null,
+    double? RefreshRate = null,
+    string? SerialNumber = null,
+    int? ManufactureYear = null);

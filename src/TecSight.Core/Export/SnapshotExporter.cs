@@ -64,7 +64,7 @@ public sealed class SnapshotExporter : ISnapshotExporter
         }
         foreach (var d in inv.Disks)
         {
-            sb.AppendLine($"  磁盘 Disk: {d.Model ?? "不可用 N/A"}  {FormatBytes(d.CapacityBytes)}  {d.MediaType ?? ""}  {d.BusType ?? ""}  FW {d.FirmwareVersion ?? "N/A"}  健康度 Health: {HealthText(d.Health)}".TrimEnd());
+            sb.AppendLine($"  磁盘 Disk: {d.Model ?? "不可用 N/A"}  {FormatBytes(d.CapacityBytes)}  {d.MediaType ?? ""}  {d.BusType ?? ""}  FW {d.FirmwareVersion ?? "N/A"}  SN {d.SerialNumber ?? "N/A"}  健康度 Health: {HealthText(d.Health)}".TrimEnd());
         }
         foreach (var ld in inv.LogicalDisks)
         {
@@ -116,7 +116,7 @@ public sealed class SnapshotExporter : ISnapshotExporter
         sb.AppendLine("[运行指标 Live Metrics]");
         sb.AppendLine($"  CPU 占用 Usage: {FormatPct(m.CpuUsagePercent)}  频率 Freq: {FormatMhz(m.CpuFrequencyMhz)}  运行时长 Uptime: {FormatUptime(m.SystemUptimeSeconds)}");
         sb.AppendLine($"  内存 Memory: {FormatPct(m.MemoryUsagePercent)} ({FormatBytes(m.MemoryUsedBytes)} / {FormatBytes(m.MemoryTotalBytes)})");
-        sb.AppendLine($"  GPU 占用 Usage: {FormatPct(m.GpuUsagePercent)}  引擎 Engines: {string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {e.Percent.ToString("0.0", CultureInfo.InvariantCulture)}%"))}");
+        sb.AppendLine($"  GPU 占用 Usage: {FormatPct(m.GpuUsagePercent)}  引擎 Engines: {string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {FormatUtil.Pct(e.Percent, "N/A")}"))}");
         sb.AppendLine($"  磁盘 Disk: ↓读 {FormatBps(m.DiskReadBytesPerSec)} ↑写 {FormatBps(m.DiskWriteBytesPerSec)}");
         sb.AppendLine($"  网络 Network: ↓{FormatBps(m.NetworkDownloadBps)} ↑{FormatBps(m.NetworkUploadBps)}");
         sb.AppendLine($"  电池 Battery: {FormatPct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "充电 Charging" : "")}");
@@ -146,7 +146,7 @@ public sealed class SnapshotExporter : ISnapshotExporter
         return list.Count == 0 ? "" : string.Join("; ", list) + (names.Count() > 8 ? " …" : "");
     }
 
-    private static string Num(double? v) => v.HasValue ? v.Value.ToString("0.###", CultureInfo.InvariantCulture) : "";
+    private static string Num(double? v) => v is double x && double.IsFinite(x) ? x.ToString("0.###", CultureInfo.InvariantCulture) : "";
 
     private static string HealthText(StorageHealth? h) => h?.Status switch
     {
@@ -162,7 +162,7 @@ public sealed class SnapshotExporter : ISnapshotExporter
     private static string FormatBps(double? b) => FormatUtil.Bps(b, "不可用 N/A");
     private static string FormatUptime(double? sec)
     {
-        if (sec is not double s || s < 0) return "不可用 N/A";
+        if (sec is not double s || !double.IsFinite(s) || s < 0) return "不可用 N/A";
         var t = TimeSpan.FromSeconds(s);
         return t.TotalDays >= 1 ? t.ToString(@"d\.hh\:mm") : t.ToString(@"hh\:mm");
     }

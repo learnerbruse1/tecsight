@@ -44,7 +44,7 @@ public partial class PeripheralsPage : UserControl
             _pendingRefresh = true; // 扫描进行中再点刷新：标记待办，当前扫描完成后立即再扫一次
             return;
         }
-        if (DateTimeOffset.UtcNow - _lastScan < TimeSpan.FromSeconds(10)) return;
+        if (DateTimeOffset.UtcNow - _lastScan < TimeSpan.FromSeconds(AppSettings.PeripheralScanSeconds)) return;
         _scanning = true;
         _ = Task.Run(() =>
         {
@@ -86,16 +86,24 @@ public partial class PeripheralsPage : UserControl
     private void Show(MainViewModel vm, IReadOnlyList<PeripheralDevice> devices)
     {
         _lastScan = DateTimeOffset.UtcNow;
-        Groups.ItemsSource = devices
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var merged = new List<PeripheralDevice>();
+        foreach (var d in devices.Concat(PeripheralProbe.FromInventory(vm.Snapshot.Inventory)))
+        {
+            var key = d.Category + "|" + d.Name + "|" + d.Manufacturer + "|" + d.PnpDeviceId;
+            if (seen.Add(key)) merged.Add(d);
+        }
+
+        Groups.ItemsSource = merged
             .GroupBy(d => d.Category)
             .OrderBy(g => Array.IndexOf(CategoryOrder, g.Key) is var idx && idx >= 0 ? idx : CategoryOrder.Length)
             .Select(g => new PeripheralGroup(
                 $"{vm.Loc["Peripheral." + g.Key]}  ({g.Count()})",
                 g.Select(d => BuildItem(d, vm.Loc)).ToList()))
             .ToList();
-        CountText.Text = $"{vm.Loc["Peripheral.Count"]} {devices.Count}  ·  {vm.Loc["Peripheral.UpdatedAt"]} {DateTime.Now:HH:mm:ss}";
+        CountText.Text = $"{vm.Loc["Peripheral.Count"]} {merged.Count}  ·  {vm.Loc["Peripheral.UpdatedAt"]} {DateTime.Now:HH:mm:ss}";
         EmptyText.Text = vm.Loc["Peripheral.None"];
-        EmptyText.Visibility = devices.Count == 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        EmptyText.Visibility = merged.Count == 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
     }
 
     private static PeripheralItem BuildItem(PeripheralDevice d, LocalizationManager loc)
@@ -107,6 +115,10 @@ public partial class PeripheralsPage : UserControl
             new(loc["Detail.Manufacturer"], d.Manufacturer ?? Un()),
             new(loc["Detail.Type"], d.PnpClass ?? Un()),
             new(loc["Detail.Status"], d.Status ?? Un()),
+            new(loc["Peripheral.Resolution"], d.Resolution ?? Un()),
+            new(loc["Peripheral.RefreshRate"], d.RefreshRate.HasValue ? d.RefreshRate.Value.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " Hz" : Un()),
+            new(loc["Detail.Serial"], d.SerialNumber ?? Un()),
+            new(loc["Peripheral.Year"], d.ManufactureYear.HasValue ? d.ManufactureYear.Value.ToString() : Un()),
             new(loc["Detail.Description"],
                 string.IsNullOrWhiteSpace(d.Description) || string.Equals(d.Description, d.Name, StringComparison.Ordinal)
                     ? Un()

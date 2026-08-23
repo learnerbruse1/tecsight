@@ -31,6 +31,7 @@ public class HardwareClassifierTests
     [InlineData("Intel Core i7", true)]
     [InlineData("AMD Ryzen 7", true)]
     [InlineData("CPU Package", true)]
+    [InlineData("Intel(R) Ethernet Controller I225-V", false)]
     [InlineData("NVIDIA GeForce RTX 4050", false)]
     [InlineData("", false)]
     public void MatchesCpuHw_DetectsCpuHardware(string name, bool expected)
@@ -56,6 +57,17 @@ public class HardwareClassifierTests
         var gpus = new List<GpuInfo> { new("OrayIddDriver Device", 0, "1.0") };
 
         Assert.Null(HardwareClassifier.PickPrimaryGpu(gpus));
+    }
+
+    [Theory]
+    [InlineData("Remote Desktop Adapter", true)]
+    [InlineData("Virtual Display Adapter", true)]
+    [InlineData("Mirror Driver", true)]
+    [InlineData("Microsoft Basic Display Adapter", true)]
+    [InlineData("NVIDIA GeForce RTX 3060", false)]
+    public void IsVirtualGpu_DetectsVirtualDisplayDrivers(string name, bool expected)
+    {
+        Assert.Equal(expected, HardwareClassifier.IsVirtualGpu(name));
     }
 
     [Theory]

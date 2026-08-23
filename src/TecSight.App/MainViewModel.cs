@@ -7,7 +7,7 @@ using TecSight.Core.Models;
 
 namespace TecSight.App;
 
-public enum AppPage { Overview, Cpu, Memory, Disk, Gpu, Motherboard, Network, Battery, Sensors, Processes, OtherDevices, Peripherals, Bios }
+public enum AppPage { Overview, Cpu, Memory, Disk, Gpu, Motherboard, Network, Battery, Sensors, Processes, Peripherals, Bios }
 
 /// <summary>导航项。ToString 返回标题，便于无障碍（屏幕阅读器）读出干净的导航名。</summary>
 public sealed record NavEntry(AppPage Page, string Title)
@@ -23,7 +23,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public HistoryCollector Collector { get; }
     public ISnapshotExporter Exporter { get; } = new SnapshotExporter();
 
-    /// <summary>软件版本（如 1.1.0）。</summary>
+    /// <summary>软件版本（如 1.2.0）。</summary>
     public string AppVersion { get; } = (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)) ?? "?";
 
     private Snapshot _snapshot = new(DateTimeOffset.MinValue, new HardwareInventory(), new LiveMetrics { Timestamp = DateTimeOffset.MinValue });
@@ -77,7 +77,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             new NavEntry(AppPage.Battery, Loc["Nav.Battery"]),
             new NavEntry(AppPage.Sensors, Loc["Nav.Sensors"]),
             new NavEntry(AppPage.Processes, Loc["Nav.Processes"]),
-            new NavEntry(AppPage.OtherDevices, Loc["Nav.Other"]),
             new NavEntry(AppPage.Peripherals, Loc["Nav.Peripherals"]),
         ];
     }

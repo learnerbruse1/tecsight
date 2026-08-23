@@ -20,6 +20,7 @@ public class FormatUtilEdgeTests
         Assert.Equal("N/A", FormatUtil.Gb((long?)null, "N/A"));
         Assert.Equal("0.0 GB", FormatUtil.Gb(0L, "N/A"));
         Assert.Equal("1.0 GB", FormatUtil.Gb(1073741824L, "N/A"));
+        Assert.Equal("N/A", FormatUtil.Gb(double.NaN, "N/A"));
     }
 
     [Fact]
@@ -27,6 +28,34 @@ public class FormatUtilEdgeTests
     {
         Assert.Equal("N/A", FormatUtil.Pct(double.NaN, "N/A"));
         Assert.Equal("12.5%", FormatUtil.Pct(12.5, "N/A"));
+    }
+
+    [Fact]
+    public void Bps_NullOrNonFinite_ReturnsNullText()
+    {
+        Assert.Equal("N/A", FormatUtil.Bps(null, "N/A"));
+        Assert.Equal("N/A", FormatUtil.Bps(double.NaN, "N/A"));
+        Assert.Equal("1 KB/s", FormatUtil.Bps(1024, "N/A"));
+    }
+
+    [Fact]
+    public void FreqMhz_NullOrNonFinite_ReturnsNullText()
+    {
+        Assert.Equal("N/A", FormatUtil.FreqMhz(null, "N/A"));
+        Assert.Equal("N/A", FormatUtil.FreqMhz(double.PositiveInfinity, "N/A"));
+        Assert.Equal("2400 MHz", FormatUtil.FreqMhz(2400, "N/A"));
+    }
+
+    [Theory]
+    [InlineData(null, "N/A")]
+    [InlineData(double.NaN, "N/A")]
+    [InlineData(double.PositiveInfinity, "N/A")]
+    [InlineData(0d, "0")]
+    [InlineData(12.345, "12.35")]
+    [InlineData(-3.6, "-3.6")]
+    public void Number_FormatsFiniteValuesAndNullText(double? value, string expected)
+    {
+        Assert.Equal(expected, FormatUtil.Number(value, "N/A"));
     }
 
     [Fact]
@@ -81,5 +110,25 @@ public class FormatUtilEdgeTests
 
         Assert.Contains("[--] CPU usage", report);
         Assert.Contains("[--] Memory usage", report);
+    }
+
+    [Fact]
+    public void CompatibilityReporter_NonFiniteMetric_ShowsN_A_NotNaN()
+    {
+        var snap = new Snapshot(
+            DateTimeOffset.UtcNow,
+            new HardwareInventory(),
+            new LiveMetrics
+            {
+                Timestamp = DateTimeOffset.UtcNow,
+                CpuUsagePercent = double.NaN,
+                MemoryUsagePercent = double.PositiveInfinity,
+            });
+
+        var report = CompatibilityReporter.Build(snap);
+
+        Assert.Contains("N/A", report);
+        Assert.DoesNotContain("NaN", report);
+        Assert.DoesNotContain("∞", report);
     }
 }

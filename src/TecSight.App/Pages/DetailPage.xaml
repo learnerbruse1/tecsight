@@ -10,9 +10,14 @@
                   Visibility="Collapsed"/>
         <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="16">
         <ItemsControl x:Name="Sections">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <GroupBox Header="{Binding Title}" Margin="0,8,0,8" Padding="10" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                    <GroupBox Header="{Binding Title}" MinWidth="340" MaxWidth="560" Margin="0,8,8,8" Padding="10" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                         <ItemsControl ItemsSource="{Binding Rows}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

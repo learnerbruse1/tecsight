@@ -16,12 +16,20 @@ public static class HardwareClassifier
             .OrderByDescending(g => g.MemoryBytes ?? 0)
             .FirstOrDefault();
 
-    public static bool MatchesCpuHw(string name) =>
-        name.Contains("CPU", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Intel", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("AMD", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Core", StringComparison.OrdinalIgnoreCase)
-        || name.Contains("Package", StringComparison.OrdinalIgnoreCase);
+    public static bool MatchesCpuHw(string name)
+    {
+        if (ContainsAny(name,
+                "Ethernet", "Network", "Wi-Fi", "Wireless", "Bluetooth", "NDIS",
+                "Realtek", "ASIX", "Controller", "Adapter"))
+        {
+            return false;
+        }
+        return name.Contains("CPU", StringComparison.OrdinalIgnoreCase)
+               || name.Contains("Intel", StringComparison.OrdinalIgnoreCase)
+               || name.Contains("AMD", StringComparison.OrdinalIgnoreCase)
+               || name.Contains("Core", StringComparison.OrdinalIgnoreCase)
+               || name.Contains("Package", StringComparison.OrdinalIgnoreCase);
+    }
 
     public static bool MatchesGpuHw(string name) =>
         name.Contains("GPU", StringComparison.OrdinalIgnoreCase)

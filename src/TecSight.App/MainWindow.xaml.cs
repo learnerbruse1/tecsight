@@ -1,12 +1,12 @@
 using System.Diagnostics;
 using System.Security.Principal;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using Vanara.PInvoke;
 using TecSight.App.Pages;
 using TecSight.App.Themes;
 using TecSight.Core;
@@ -55,7 +55,10 @@ public partial class MainWindow : Window
 
         var collector = new HistoryCollector(
             new SnapshotCollector(
-                new CachedInventoryProvider(new WmiInventoryProvider()),
+                new CachedInventoryProvider(
+                    new WmiInventoryProvider(),
+                    TimeSpan.FromSeconds(AppSettings.InventoryRefreshSeconds),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TecSight", "inventory-cache.json")),
                 _metricsProvider,
                 _sensorProvider),
             capacity: 3600);
@@ -81,7 +84,7 @@ public partial class MainWindow : Window
         _vm.CurrentPage = startPage;
         UpdateCurrentPage(); // 首帧即显示对应页面（数据不足时显示占位/N/A），避免空白闪屏
 
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(AppSettings.RefreshIntervalSeconds) };
         _timer.Tick += (_, _) => CollectAsync();
         _timer.Start();
 
@@ -181,6 +184,7 @@ public partial class MainWindow : Window
     private void LangButton_Click(object sender, RoutedEventArgs e)
     {
         _vm.Loc.CurrentLanguage = _vm.Loc.CurrentLanguage == "zh" ? "en" : "zh";
+        AppSettings.SetLanguage(_vm.Loc.CurrentLanguage);
         _realTitle = _vm.Loc["App.Title"];
         Title = _realTitle;
         _detail.InvalidateModel(); // 详情页静态标签按新语言重建
@@ -190,10 +194,35 @@ public partial class MainWindow : Window
 
     private void ThemeButton_Click(object sender, RoutedEventArgs e) => ToggleTheme();
 
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new SettingsWindow { Owner = this };
+        if (dlg.ShowDialog() == true)
+        {
+            _timer.Interval = TimeSpan.FromSeconds(AppSettings.RefreshIntervalSeconds);
+            if (ThemeManager.IsDark != AppSettings.DarkTheme)
+            {
+                ThemeManager.SetDark(AppSettings.DarkTheme);
+                ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
+                ApplyTitleBarTheme();
+            }
+            if (!string.IsNullOrEmpty(AppSettings.Language) && _vm.Loc.CurrentLanguage != AppSettings.Language)
+            {
+                _vm.Loc.CurrentLanguage = AppSettings.Language;
+                _realTitle = _vm.Loc["App.Title"];
+                Title = _realTitle;
+            }
+            _detail.SetHideNetworkNoise(AppSettings.HideNetworkNoise);
+            _detail.InvalidateModel();
+            UpdateCurrentPage();
+        }
+    }
+
     /// <summary>切换深色/浅色主题，并同步按钮图标与持久化设置（主题按钮 / F11 共用）。</summary>
     private void ToggleTheme()
     {
         ThemeManager.Toggle();
+        AppSettings.SetDarkTheme(ThemeManager.IsDark);
         ThemeButton.Content = ThemeManager.IsDark ? "☀️" : "🌙";
         ApplyTitleBarTheme();
         AppSettings.Save();
@@ -208,9 +237,9 @@ public partial class MainWindow : Window
             if (hwnd == IntPtr.Zero) return;
             var dark = ThemeManager.IsDark ? 1 : 0;
             // Windows 10 2004+ / 11 使用属性 20；旧版 1809-1903 使用 19
-            if (DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int)) != 0)
+            if (DwmApi.DwmSetWindowAttribute(hwnd, DwmApi.DWMWINDOWATTRIBUTE.DWMWA_USE_IMMERSIVE_DARK_MODE, dark) != 0)
             {
-                DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_OLD, ref dark, sizeof(int));
+                DwmApi.DwmSetWindowAttribute(hwnd, (DwmApi.DWMWINDOWATTRIBUTE)19, dark);
             }
         }
         catch
@@ -218,12 +247,6 @@ public partial class MainWindow : Window
             // DWM 不可用时保持系统标题栏
         }
     }
-
-    [DllImport("dwmapi.dll", PreserveSig = true)]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
-
-    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
-    private const int DWMWA_USE_IMMERSIVE_DARK_MODE_OLD = 19;
 
     /// <summary>以管理员权限重启，以便读取需要内核驱动的传感器（CPU 温度/风扇等）。</summary>
     private void AdminRestart_Click(object sender, RoutedEventArgs e)
@@ -286,24 +309,18 @@ public partial class MainWindow : Window
 
     private void ExportHtml_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new SaveFileDialog
-        {
-            FileName = $"tecsight-{DateTime.Now:yyyyMMdd-HHmmss}.html",
-            Filter = "HTML 文件 (*.html)|*.html",
-        };
-        if (dlg.ShowDialog(this) != true) return;
-        File.WriteAllText(dlg.FileName, _vm.Exporter.ExportHtml(_vm.Snapshot));
+        SaveTextFile(
+            $"tecsight-{DateTime.Now:yyyyMMdd-HHmmss}.html",
+            _vm.Loc["Export.FilterHtml"],
+            _vm.Exporter.ExportHtml(_vm.Snapshot));
     }
 
     private void ExportHistoryCsv_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new SaveFileDialog
-        {
-            FileName = $"tecsight-history-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
-            Filter = "CSV 文件 (*.csv)|*.csv",
-        };
-        if (dlg.ShowDialog(this) != true) return;
-        File.WriteAllText(dlg.FileName, _vm.Exporter.ExportHistoryCsv(_vm.History));
+        SaveTextFile(
+            $"tecsight-history-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
+            _vm.Loc["Export.FilterCsv"],
+            _vm.Exporter.ExportHistoryCsv(_vm.History));
     }
 
     private void ExportJson_Click(object sender, RoutedEventArgs e) => Export("json");
@@ -312,27 +329,40 @@ public partial class MainWindow : Window
 
     private void Export(string ext)
     {
-        var dlg = new SaveFileDialog
-        {
-            FileName = $"tecsight-{DateTime.Now:yyyyMMdd-HHmmss}.{ext}",
-            Filter = ext == "json" ? "JSON 文件 (*.json)|*.json" : "文本文件 (*.txt)|*.txt",
-        };
-        if (dlg.ShowDialog(this) != true) return;
         var content = ext == "json"
             ? _vm.Exporter.ExportJson(_vm.Snapshot)
             : _vm.Exporter.ExportTxt(_vm.Snapshot);
-        File.WriteAllText(dlg.FileName, content);
+        SaveTextFile(
+            $"tecsight-{DateTime.Now:yyyyMMdd-HHmmss}.{ext}",
+            ext == "json" ? _vm.Loc["Export.FilterJson"] : _vm.Loc["Export.FilterTxt"],
+            content);
     }
 
     private void ExportCompat()
     {
+        SaveTextFile(
+            $"tecsight-compat-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
+            _vm.Loc["Export.FilterTxt"],
+            CompatibilityReporter.Build(_vm.Snapshot));
+    }
+
+    private void SaveTextFile(string fileName, string filter, string content)
+    {
         var dlg = new SaveFileDialog
         {
-            FileName = $"tecsight-compat-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
-            Filter = "文本文件 (*.txt)|*.txt",
+            FileName = fileName,
+            Filter = filter,
         };
         if (dlg.ShowDialog(this) != true) return;
-        File.WriteAllText(dlg.FileName, CompatibilityReporter.Build(_vm.Snapshot));
+        try
+        {
+            File.WriteAllText(dlg.FileName, content);
+            ShowTransientStatus($"{_vm.Loc["Export.Saved"]}{System.IO.Path.GetFileName(dlg.FileName)}");
+        }
+        catch (Exception ex)
+        {
+            ShowTransientStatus(ex.Message);
+        }
     }
 
     /// <summary>快捷键：Ctrl+E 打开导出菜单；F5 手动刷新。</summary>

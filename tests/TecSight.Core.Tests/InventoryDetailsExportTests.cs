@@ -61,4 +61,31 @@ public class InventoryDetailsExportTests
         Assert.Equal("1.2.3", inv.GetProperty("NetworkAdapters")[0].GetProperty("DriverVersion").GetString());
         Assert.Equal("MyNetwork", inv.GetProperty("WifiInterfaces")[0].GetProperty("Ssid").GetString());
     }
+
+    [Fact]
+    public void ExportTxt_DriveTypesAreLocalized()
+    {
+        var snap = new Snapshot(
+            DateTimeOffset.UtcNow,
+            new HardwareInventory
+            {
+                LogicalDisks =
+                [
+                    new LogicalDiskInfo("A:", null, null, null, null, 2),
+                    new LogicalDiskInfo("C:", null, null, null, null, 3),
+                    new LogicalDiskInfo("Z:", null, null, null, null, 4),
+                    new LogicalDiskInfo("D:", null, null, null, null, 5),
+                    new LogicalDiskInfo("R:", null, null, null, null, 6),
+                ],
+            },
+            new LiveMetrics { Timestamp = DateTimeOffset.UtcNow });
+
+        var txt = new SnapshotExporter().ExportTxt(snap);
+
+        Assert.Contains("可移动 Removable", txt);
+        Assert.Contains("本地磁盘 Fixed", txt);
+        Assert.Contains("网络 Network", txt);
+        Assert.Contains("光盘 Optical", txt);
+        Assert.Contains("内存盘 RAM Disk", txt);
+    }
 }

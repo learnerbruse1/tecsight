@@ -1,17 +1,90 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using ManagedNativeWifi;
 using TecSight.Core.Models;
 
 namespace TecSight.Core;
 
 /// <summary>
-/// Wi-Fi 接口详情数据源：调用 netsh wlan show interfaces 并解析输出。
-/// 无法执行或解析失败时返回空列表（降级），不抛异常。
+/// Wi-Fi 接口详情数据源：优先使用 ManagedNativeWifi 原生 WLAN API；
+/// 不可用时回退到 netsh wlan show interfaces 并解析输出。
 /// </summary>
 public static class WlanInfoProvider
 {
     public static IReadOnlyList<WifiInterfaceInfo> Scan()
+    {
+        try
+        {
+            return ScanWithNativeWifi();
+        }
+        catch
+        {
+            return ScanWithNetsh();
+        }
+    }
+
+    private static IReadOnlyList<WifiInterfaceInfo> ScanWithNativeWifi()
+    {
+        var channels = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var bss in NativeWifi.EnumerateBssNetworks())
+            {
+                var bssid = FormatNetworkIdentifier(bss.Bssid);
+                if (!string.IsNullOrWhiteSpace(bssid))
+                {
+                    channels[bssid] = bss.Channel;
+                }
+            }
+        }
+        catch
+        {
+            // 信道信息失败时仍可返回连接基本信息
+        }
+
+        var result = new List<WifiInterfaceInfo>();
+        foreach (var iface in NativeWifi.EnumerateInterfaces())
+        {
+            var state = InterfaceStateText(iface.State);
+            var (action, conn) = NativeWifi.GetCurrentConnection(iface.Id);
+            if (action == ActionResult.Success)
+            {
+                var bssid = FormatNetworkIdentifier(conn.Bssid);
+                channels.TryGetValue(bssid ?? "", out var channel);
+                result.Add(new WifiInterfaceInfo(
+                    iface.Description,
+                    state,
+                    conn.Ssid.ToString(),
+                    bssid,
+                    conn.PhyType.ToProtocolName(),
+                    AuthenticationText(conn.AuthenticationAlgorithm),
+                    channel > 0 ? channel : null,
+                    conn.SignalQuality,
+                    conn.RxRate > 0 ? conn.RxRate / 1000.0 : null,
+                    conn.TxRate > 0 ? conn.TxRate / 1000.0 : null,
+                    conn.ConnectionMode.ToString().ToLowerInvariant()));
+            }
+            else
+            {
+                result.Add(new WifiInterfaceInfo(
+                    iface.Description,
+                    state,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null));
+            }
+        }
+        return result;
+    }
+
+    private static IReadOnlyList<WifiInterfaceInfo> ScanWithNetsh()
     {
         try
         {
@@ -38,6 +111,53 @@ public static class WlanInfoProvider
         catch
         {
             return [];
+        }
+    }
+
+    private static string InterfaceStateText(InterfaceState state) => state switch
+    {
+        InterfaceState.Connected => "connected",
+        InterfaceState.Disconnected => "disconnected",
+        InterfaceState.NotReady => "not ready",
+        InterfaceState.Disconnecting => "disconnecting",
+        InterfaceState.Associating => "associating",
+        InterfaceState.Discovering => "discovering",
+        InterfaceState.Authenticating => "authenticating",
+        InterfaceState.AdHocNetworkFormed => "ad hoc",
+        _ => state.ToString().ToLowerInvariant(),
+    };
+
+    private static string? AuthenticationText(AuthenticationAlgorithm algorithm) => algorithm switch
+    {
+        AuthenticationAlgorithm.Unknown => null,
+        AuthenticationAlgorithm.Open => "Open",
+        AuthenticationAlgorithm.Shared => "Shared",
+        AuthenticationAlgorithm.WPA => "WPA",
+        AuthenticationAlgorithm.WPA_PSK => "WPA-PSK",
+        AuthenticationAlgorithm.WPA_NONE => "WPA-None",
+        AuthenticationAlgorithm.RSNA => "WPA2",
+        AuthenticationAlgorithm.RSNA_PSK => "WPA2-PSK",
+        AuthenticationAlgorithm.WPA3_ENT_192 => "WPA3-Enterprise 192",
+        AuthenticationAlgorithm.WPA3_ENT => "WPA3-Enterprise",
+        AuthenticationAlgorithm.WPA3_SAE => "WPA3-SAE",
+        AuthenticationAlgorithm.OWE => "OWE",
+        _ => algorithm.ToString(),
+    };
+
+    private static string? FormatNetworkIdentifier(NetworkIdentifier identifier)
+    {
+        try
+        {
+            var bytes = identifier.ToBytes();
+            if (bytes.Length == 6)
+            {
+                return string.Join(":", bytes.Select(b => b.ToString("X2", CultureInfo.InvariantCulture)));
+            }
+            return identifier.ToString();
+        }
+        catch
+        {
+            return null;
         }
     }
 

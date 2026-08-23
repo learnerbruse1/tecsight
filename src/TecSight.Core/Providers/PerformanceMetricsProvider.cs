@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
+using Vanara.PInvoke;
 using TecSight.Core.Models;
 
 namespace TecSight.Core;
@@ -168,7 +168,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     {
         try
         {
-            return GetTickCount64() / 1000.0;
+            return Kernel32.GetTickCount64() / 1000.0;
         }
         catch
         {
@@ -228,6 +228,7 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             var category = new PerformanceCounterCategory("Network Interface");
             foreach (var instance in category.GetInstanceNames())
             {
+                if (HardwareClassifier.IsVirtualNetworkAdapter(instance)) continue;
                 _networkDown.Add(new PerformanceCounter("Network Interface", "Bytes Received/sec", instance));
                 _networkUp.Add(new PerformanceCounter("Network Interface", "Bytes Sent/sec", instance));
             }
@@ -325,47 +326,12 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         DisposeAll(_gpuEngines);
     }
 
-    // ---- 原生 API ----
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MemoryStatusEx
-    {
-        public uint dwLength;
-        public uint dwMemoryLoad;
-        public ulong ullTotalPhys;
-        public ulong ullAvailPhys;
-        public ulong ullTotalPageFile;
-        public ulong ullAvailPageFile;
-        public ulong ullTotalVirtual;
-        public ulong ullAvailVirtual;
-        public ulong ullAvailExtendedVirtual;
-    }
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx lpBuffer);
-
-    [DllImport("kernel32.dll")]
-    private static extern bool GetSystemPowerStatus(out SystemPowerStatus sps);
-
-    [DllImport("kernel32.dll")]
-    private static extern ulong GetTickCount64();
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct SystemPowerStatus
-    {
-        public byte AclLineStatus;
-        public byte BatteryFlag;
-        public byte BatteryLifePercent;
-        public byte SystemStatusFlag;
-        public uint BatteryLifeTime;
-        public uint BatteryFullLifeTime;
-    }
-
     private static (double? Total, double? Used) MemoryBytes()
     {
         try
         {
-            var m = new MemoryStatusEx { dwLength = (uint)Marshal.SizeOf<MemoryStatusEx>() };
-            if (!GlobalMemoryStatusEx(ref m) || m.ullTotalPhys == 0) return (null, null);
+            var m = Kernel32.MEMORYSTATUSEX.Default;
+            if (!Kernel32.GlobalMemoryStatusEx(ref m) || m.ullTotalPhys == 0) return (null, null);
             var used = (double)(m.ullTotalPhys - m.ullAvailPhys);
             return (m.ullTotalPhys, used);
         }
@@ -379,20 +345,20 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
     {
         try
         {
-            if (!GetSystemPowerStatus(out var sps)) return (null, null);
+            if (!Kernel32.GetSystemPowerStatus(out var sps)) return (null, null);
             double? percent = sps.BatteryLifePercent == BatteryPercentUnknown ? null : sps.BatteryLifePercent;
             bool? charging;
-            if (sps.AclLineStatus == 0)
+            if (sps.ACLineStatus == Kernel32.AC_STATUS.AC_OFFLINE)
             {
                 charging = false; // 用电池
             }
-            else if (sps.BatteryFlag == BatteryPercentUnknown)
+            else if (sps.BatteryFlag == Kernel32.BATTERY_STATUS.BATTERY_UNKNOWN)
             {
                 charging = null; // 接电源但状态未知
             }
             else
             {
-                charging = (sps.BatteryFlag & BatteryFlagCharging) != 0; // 接电源：8 = 充电中
+                charging = sps.BatteryFlag.HasFlag(Kernel32.BATTERY_STATUS.BATTERY_CHARGING); // 接电源：充电中
             }
             return (percent, charging);
         }

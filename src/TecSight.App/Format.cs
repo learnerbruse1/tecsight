@@ -17,8 +17,8 @@ public static class Format
     /// <summary>运行时长（秒 → 天/小时/分，按语言）。</summary>
     public static string Uptime(double? seconds, string lang)
     {
-        if (!seconds.HasValue) return "—";
-        var t = TimeSpan.FromSeconds(seconds.Value);
+        if (seconds is not double s || !double.IsFinite(s) || s < 0) return "—";
+        var t = TimeSpan.FromSeconds(s);
         var zh = lang == "zh";
         if (t.TotalDays >= 1) return zh ? $"{t.Days} 天 {t.Hours} 小时" : $"{t.Days}d {t.Hours}h";
         if (t.TotalHours >= 1) return zh ? $"{t.Hours} 小时 {t.Minutes} 分" : $"{t.Hours}h {t.Minutes}m";

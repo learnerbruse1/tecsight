@@ -7,41 +7,51 @@
             <TextBlock x:Name="CountText" VerticalAlignment="Center" FontWeight="SemiBold"/>
             <Button Content="{Binding Loc[Peripheral.Refresh]}" Click="Refresh_Click" Padding="12,5" Margin="18,0,0,0"/>
         </StackPanel>
-        <TextBlock x:Name="EmptyText" Foreground="{DynamicResource SubTextBrush}" FontSize="14" Margin="0,16,0,0" Visibility="Collapsed"/>
+        <TextBlock x:Name="EmptyText" DockPanel.Dock="Top" Foreground="{DynamicResource SubTextBrush}" FontSize="14" Margin="0,16,0,0" Visibility="Collapsed"/>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <ItemsControl x:Name="Groups">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <GroupBox Header="{Binding Title}" Margin="0,6,0,6" Padding="10" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                             <ItemsControl ItemsSource="{Binding Items}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Expander Margin="0,2" HorizontalContentAlignment="Stretch" Foreground="{DynamicResource TextBrush}">
-                                            <Expander.Header>
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="280"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding Summary}" TextWrapping="Wrap" Foreground="{DynamicResource SubTextBrush}" Margin="8,0,0,0"/>
-                                                </Grid>
-                                            </Expander.Header>
-                                            <ItemsControl ItemsSource="{Binding Details}" Margin="0,8,0,0">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid Margin="0,2">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="150"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Text="{Binding Label}" Foreground="{DynamicResource SubTextBrush}"/>
-                                                            <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"/>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </Expander>
+                                        <Border MinWidth="250" Margin="6" Padding="8" CornerRadius="8"
+                                                Background="{DynamicResource CardBgBrush}"
+                                                BorderBrush="{DynamicResource CardBorderBrush}"
+                                                BorderThickness="1">
+                                            <Expander Margin="0,0" HorizontalContentAlignment="Stretch" Foreground="{DynamicResource TextBrush}">
+                                                <Expander.Header>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="220"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Summary}" TextWrapping="Wrap" Foreground="{DynamicResource SubTextBrush}" Margin="8,0,0,0"/>
+                                                    </Grid>
+                                                </Expander.Header>
+                                                <ItemsControl ItemsSource="{Binding Details}" Margin="0,8,0,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,2">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="150"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="{Binding Label}" Foreground="{DynamicResource SubTextBrush}"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"/>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Expander>
+                                        </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>

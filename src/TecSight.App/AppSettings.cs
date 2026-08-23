@@ -15,6 +15,9 @@ public static class AppSettings
     public static string Language { get; private set; } = "";
     public static bool DarkTheme { get; private set; }
     public static bool HideNetworkNoise { get; private set; }
+    public static double RefreshIntervalSeconds { get; private set; } = 1;
+    public static double PeripheralScanSeconds { get; private set; } = 10;
+    public static double InventoryRefreshSeconds { get; private set; } = 60;
     public static int LastPage { get; private set; } // 上次浏览的页面（0 = 概览）
     public static double WindowLeft { get; private set; } = double.NaN;
     public static double WindowTop { get; private set; } = double.NaN;
@@ -32,6 +35,9 @@ public static class AppSettings
             Language = j.Language ?? "";
             DarkTheme = j.DarkTheme;
             HideNetworkNoise = j.HideNetworkNoise;
+            RefreshIntervalSeconds = j.RefreshIntervalSeconds is >= 1 and <= 60 ? j.RefreshIntervalSeconds : 1;
+            PeripheralScanSeconds = j.PeripheralScanSeconds is >= 5 and <= 300 ? j.PeripheralScanSeconds : 10;
+            InventoryRefreshSeconds = j.InventoryRefreshSeconds is >= 30 and <= 600 ? j.InventoryRefreshSeconds : 60;
             LastPage = j.LastPage;
             WindowLeft = j.WindowLeft;
             WindowTop = j.WindowTop;
@@ -48,6 +54,16 @@ public static class AppSettings
     /// <summary>更新「隐藏网络过滤器噪音」偏好（下次 Save 时一并持久化）。</summary>
     public static void SetHideNetworkNoise(bool value) => HideNetworkNoise = value;
 
+    public static void SetRefreshIntervalSeconds(double value) => RefreshIntervalSeconds = value;
+
+    public static void SetPeripheralScanSeconds(double value) => PeripheralScanSeconds = value;
+
+    public static void SetInventoryRefreshSeconds(double value) => InventoryRefreshSeconds = value;
+
+    public static void SetDarkTheme(bool value) => DarkTheme = value;
+
+    public static void SetLanguage(string value) => Language = value;
+
     /// <summary>更新上次浏览的页面（下次 Save 时持久化）。</summary>
     public static void SetLastPage(int value) => LastPage = value;
 
@@ -59,9 +75,12 @@ public static class AppSettings
             Directory.CreateDirectory(Dir);
             File.WriteAllText(FilePath, JsonSerializer.Serialize(new Settings
             {
-                Language = Localization.LocalizationManager.Instance.CurrentLanguage,
-                DarkTheme = Themes.ThemeManager.IsDark,
+                Language = Language,
+                DarkTheme = DarkTheme,
                 HideNetworkNoise = HideNetworkNoise,
+                RefreshIntervalSeconds = RefreshIntervalSeconds,
+                PeripheralScanSeconds = PeripheralScanSeconds,
+                InventoryRefreshSeconds = InventoryRefreshSeconds,
                 LastPage = LastPage,
                 WindowLeft = WindowLeft,
                 WindowTop = WindowTop,
@@ -92,6 +111,9 @@ public static class AppSettings
         public string? Language { get; set; }
         public bool DarkTheme { get; set; }
         public bool HideNetworkNoise { get; set; }
+        public double RefreshIntervalSeconds { get; set; } = 1;
+        public double PeripheralScanSeconds { get; set; } = 10;
+        public double InventoryRefreshSeconds { get; set; } = 60;
         public int LastPage { get; set; }
         public double WindowLeft { get; set; } = double.NaN;
         public double WindowTop { get; set; } = double.NaN;

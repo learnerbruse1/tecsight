@@ -24,6 +24,7 @@ public partial class DetailPage : UserControl
         public required List<LiveRow> SensorRows { get; init; }
         public required Func<MainViewModel, IReadOnlyList<SmartAttributeReading>> SmartFilter { get; init; }
         public required List<LiveRow> SmartRows { get; init; }
+        public required DateTimeOffset BuiltCapturedAt { get; init; }
     }
 
     public DetailPage() => InitializeComponent();
@@ -78,6 +79,7 @@ public partial class DetailPage : UserControl
         var needRebuild = _model is null
                           || _model.Category != _category
                           || vm.Snapshot.CapturedAt == DateTimeOffset.MinValue
+                          || (_model.BuiltCapturedAt == DateTimeOffset.MinValue && vm.Snapshot.CapturedAt != DateTimeOffset.MinValue)
                           || _model.SensorRows.Count != sensorCount
                           || _model.SmartRows.Count != smartCount;
         if (needRebuild)
@@ -105,12 +107,13 @@ public partial class DetailPage : UserControl
         {
             case AppPage.Cpu:
             {
-                var rows = new List<IDetailRow>
+                for (var i = 0; i < inv.Cpus.Count; i++)
                 {
-                    new StaticRow(loc["Detail.PhysicalCpuCount"], inv.Cpus.Count.ToString()),
-                };
-                foreach (var c in inv.Cpus)
-                {
+                    var c = inv.Cpus[i];
+                    var rows = new List<IDetailRow>
+                    {
+                        new StaticRow(loc["Detail.PhysicalCpuCount"], inv.Cpus.Count.ToString()),
+                    };
                     rows.Add(new StaticRow(loc["Detail.Model"], c.Name ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Cores"], c.CoreCount.ToString()));
                     rows.Add(new StaticRow(loc["Detail.Threads"], c.LogicalProcessorCount.ToString()));
@@ -123,8 +126,13 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.L3Cache"], c.L3CacheKb.HasValue ? $"{(c.L3CacheKb.Value / 1024.0).ToString("0.0", CultureInfo.InvariantCulture)} MB" : loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.ProcessorId"], c.ProcessorId ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Virtualization"], EnabledDisabled(c.VirtualizationFirmwareEnabled, loc)));
+                    sections.Add(new DetailSection($"{loc["Nav.Cpu"]} {i + 1}", rows));
                 }
-                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                if (inv.Cpus.Count == 0)
+                {
+                    sections.Add(new DetailSection(loc["Detail.Inventory"],
+                        [new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"])]));
+                }
                 AddMetric(metricRows, formatters, selectors, loc["Detail.CpuUsage"],
                     v => Format.Pct(v.Snapshot.Metrics.CpuUsagePercent), m => m.CpuUsagePercent);
                 AddMetric(metricRows, formatters, selectors, loc["Detail.CpuFreq"],
@@ -134,9 +142,13 @@ public partial class DetailPage : UserControl
             }
             case AppPage.Memory:
             {
-                var rows = new List<IDetailRow>();
-                foreach (var mm in inv.MemoryModules)
+                for (var i = 0; i < inv.MemoryModules.Count; i++)
                 {
+                    var mm = inv.MemoryModules[i];
+                    var title = string.IsNullOrWhiteSpace(mm.DeviceLocator)
+                        ? $"{loc["Nav.Memory"]} {i + 1}"
+                        : $"{loc["Nav.Memory"]} {i + 1} · {mm.DeviceLocator}";
+                    var rows = new List<IDetailRow>();
                     rows.Add(new StaticRow(loc["Detail.Model"], $"{mm.Manufacturer ?? loc["Common.Unknown"]} {mm.PartNumber ?? ""}".Trim()));
                     rows.Add(new StaticRow(loc["Detail.Capacity"], $"{Format.Bytes(ParseBytes(mm.CapacityBytes))}  {mm.Speed ?? loc["Common.NotAvailable"]} MHz"));
                     rows.Add(new StaticRow(loc["Detail.Type"], mm.MemoryType ?? loc["Common.NotAvailable"]));
@@ -146,9 +158,13 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.Slot"], mm.DeviceLocator ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.FormFactor"], mm.FormFactor ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Ecc"], YesNo(mm.Ecc, loc)));
+                    sections.Add(new DetailSection(title, rows));
                 }
-                if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                if (inv.MemoryModules.Count == 0)
+                {
+                    sections.Add(new DetailSection(loc["Detail.Inventory"],
+                        [new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"])]));
+                }
                 if (inv.MemoryTopology is { } mt)
                 {
                     var topoRows = new List<IDetailRow>
@@ -168,9 +184,13 @@ public partial class DetailPage : UserControl
             }
             case AppPage.Disk:
             {
-                var rows = new List<IDetailRow>();
-                foreach (var d in inv.Disks)
+                for (var i = 0; i < inv.Disks.Count; i++)
                 {
+                    var d = inv.Disks[i];
+                    var title = string.IsNullOrWhiteSpace(d.Model)
+                        ? $"{loc["Nav.Disk"]} {i + 1}"
+                        : $"{loc["Nav.Disk"]} {i + 1} · {d.Model}";
+                    var rows = new List<IDetailRow>();
                     rows.Add(new StaticRow(loc["Detail.Model"], d.Model ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Capacity"], Format.Bytes(d.CapacityBytes)));
                     rows.Add(new StaticRow(loc["Detail.Serial"], d.SerialNumber ?? loc["Common.NotAvailable"]));
@@ -178,9 +198,13 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.BusType"], d.BusType ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Firmware"], d.FirmwareVersion ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Health"], HealthText(d.Health, loc)));
+                    sections.Add(new DetailSection(title, rows));
                 }
-                if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                if (inv.Disks.Count == 0)
+                {
+                    sections.Add(new DetailSection(loc["Detail.Inventory"],
+                        [new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"])]));
+                }
                 if (inv.LogicalDisks.Count > 0)
                 {
                     var logicalRows = inv.LogicalDisks
@@ -212,9 +236,10 @@ public partial class DetailPage : UserControl
             }
             case AppPage.Gpu:
             {
-                var rows = new List<IDetailRow>();
-                foreach (var g in inv.Gpus)
+                for (var i = 0; i < inv.Gpus.Count; i++)
                 {
+                    var g = inv.Gpus[i];
+                    var rows = new List<IDetailRow>();
                     rows.Add(new StaticRow(loc["Detail.Model"], g.Name ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.Driver"], g.DriverVersion ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.DriverDate"], g.DriverDate ?? loc["Common.NotAvailable"]));
@@ -231,13 +256,16 @@ public partial class DetailPage : UserControl
                     rows.Add(new StaticRow(loc["Detail.VideoProcessor"], g.VideoProcessor ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.VideoArchitecture"], g.VideoArchitecture ?? loc["Common.NotAvailable"]));
                     rows.Add(new StaticRow(loc["Detail.AdapterCompatibility"], g.AdapterCompatibility ?? loc["Common.NotAvailable"]));
+                    sections.Add(new DetailSection($"{loc["Nav.Gpu"]} {i + 1}", rows));
                 }
-                // 显存：优先用 LHM 传感器（MB），规避 Win32 AdapterRAM 32 位溢出错误
                 var vramTotalMb = GpuSensorValue(vm, "GPU Memory Total");
-                rows.Add(new StaticRow(loc["Detail.VramTotal"],
-                    vramTotalMb.HasValue ? Format.Bytes(vramTotalMb.Value * 1024 * 1024) : loc["Common.NotAvailable"]));
-                if (rows.Count == 0) rows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-                sections.Add(new DetailSection(loc["Detail.Inventory"], rows));
+                sections.Add(new DetailSection(loc["Detail.VramTotal"],
+                    [new StaticRow(loc["Detail.VramTotal"], vramTotalMb.HasValue ? Format.Bytes(vramTotalMb.Value * 1024 * 1024) : loc["Common.NotAvailable"])]));
+                if (inv.Gpus.Count == 0)
+                {
+                    sections.Add(new DetailSection(loc["Detail.Inventory"],
+                        [new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"])]));
+                }
                 AddMetric(metricRows, formatters, selectors, loc["Detail.GpuUsage"],
                     v => Format.Pct(v.Snapshot.Metrics.GpuUsagePercent), m => m.GpuUsagePercent);
                 AddMetric(metricRows, formatters, selectors, loc["Detail.GpuFreq"],
@@ -359,33 +387,21 @@ public partial class DetailPage : UserControl
                     if (!string.IsNullOrWhiteSpace(n.PnpDeviceId)) parts.Add($"{loc["Detail.PnpDeviceId"]} {n.PnpDeviceId}");
                     if (!string.IsNullOrWhiteSpace(n.DriverVersion)) parts.Add($"{loc["Detail.Driver"]} {n.DriverVersion}");
                     if (!string.IsNullOrWhiteSpace(n.DriverDate)) parts.Add($"{loc["Detail.DriverDate"]} {n.DriverDate}");
+                    var cfg = n.Index.HasValue
+                        ? inv.NetworkConfigurations.FirstOrDefault(c => c.Index == n.Index)
+                        : null;
+                    if (cfg is not null && n.NetConnectionStatus == 2)
+                    {
+                        var (ipv4, ipv6) = SplitIpVersions(cfg.IpAddresses);
+                        if (ipv4.Count > 0) parts.Add($"{loc["Detail.Ipv4"]}: {Join(ipv4)}");
+                        if (ipv6.Count > 0) parts.Add($"{loc["Detail.Ipv6"]}: {Join(ipv6)}");
+                        if (cfg.Gateways.Count > 0) parts.Add($"{loc["Detail.Gateway"]}: {Join(cfg.Gateways)}");
+                        if (cfg.DnsServers.Count > 0) parts.Add($"{loc["Detail.Dns"]}: {Join(cfg.DnsServers)}");
+                    }
                     ifRows.Add(new StaticRow(n.Name ?? loc["Common.NotAvailable"], string.Join("   ", parts)));
                 }
                 if (ifRows.Count == 0) ifRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
                 sections.Add(new DetailSection(loc["Detail.Interfaces"], ifRows));
-
-                // 已连接设备：仅对"已连接（状态 2）"的物理接口显示其 IP / 网关 / DNS / DHCP 配置
-                var devRows = new List<IDetailRow>();
-                foreach (var n in physical.Where(n => n.NetConnectionStatus == 2 && n.Index.HasValue))
-                {
-                    var cfg = inv.NetworkConfigurations.FirstOrDefault(c => c.Index == n.Index);
-                    if (cfg is null) continue;
-                    var (ipv4, ipv6) = SplitIpVersions(cfg.IpAddresses);
-                    var valueParts = new List<string>
-                    {
-                        $"{loc["Detail.Ipv4"]}: {Join(ipv4)}",
-                        $"{loc["Detail.Gateway"]}: {Join(cfg.Gateways)}",
-                        $"{loc["Detail.Dns"]}: {Join(cfg.DnsServers)}",
-                    };
-                    if (ipv6.Count > 0) valueParts.Add($"{loc["Detail.Ipv6"]}: {Join(ipv6)}");
-                    if (cfg.IpSubnets is { Count: > 0 }) valueParts.Add($"{loc["Detail.Subnet"]}: {Join(cfg.IpSubnets)}");
-                    if (cfg.DhcpEnabled == true) valueParts.Add($"{loc["Detail.Dhcp"]}: {loc["Detail.Yes"]}");
-                    else if (cfg.DhcpEnabled == false) valueParts.Add($"{loc["Detail.Dhcp"]}: {loc["Detail.No"]}");
-                    if (!string.IsNullOrWhiteSpace(cfg.DhcpServer)) valueParts.Add($"{loc["Detail.DhcpServer"]}: {cfg.DhcpServer}");
-                    if (!string.IsNullOrWhiteSpace(cfg.DnsDomain)) valueParts.Add($"{loc["Detail.DnsDomain"]}: {cfg.DnsDomain}");
-                    devRows.Add(new StaticRow(n.Name ?? loc["Common.NotAvailable"], string.Join("   ", valueParts)));
-                }
-                if (devRows.Count > 0) sections.Add(new DetailSection(loc["Detail.ConnectedDevices"], devRows));
 
                 if (inv.WifiInterfaces.Count > 0)
                 {
@@ -437,64 +453,6 @@ public partial class DetailPage : UserControl
                     .Where(s => !hideNetworkNoise || !IsNetworkFilterNoise(s.HardwareName))
                     .OrderBy(s => s.HardwareName).ThenBy(s => s.SensorName).ToList();
                 break;
-            case AppPage.OtherDevices:
-            {
-                if (inv.ProblemDevices.Count > 0)
-                {
-                    var problemRows = inv.ProblemDevices
-                        .Select(p => (IDetailRow)new StaticRow(
-                            p.Name ?? loc["Common.NotAvailable"],
-                            $"{loc["Detail.DeviceError"]} {p.ErrorCode?.ToString() ?? "?"}   {p.ErrorDescription ?? ""}   {p.Status ?? ""}".Trim()))
-                        .ToList();
-                    sections.Add(new DetailSection(loc["Detail.ProblemDevices"], problemRows));
-                }
-                else
-                {
-                    sections.Add(new DetailSection(loc["Detail.ProblemDevices"],
-                        [new StaticRow(loc["Detail.NoProblemDevices"], "")]));
-                }
-
-                var displayRows = inv.Displays
-                    .Select(d => (IDetailRow)new StaticRow(
-                        string.IsNullOrEmpty(d.Name) ? (d.Manufacturer ?? loc["Common.NotAvailable"]) : d.Name!,
-                        $"{d.Manufacturer ?? ""}  {d.PnpDeviceId ?? ""}  {d.SerialNumber ?? ""}  {(d.ManufactureYear.HasValue ? d.ManufactureYear.Value.ToString() + " 年" : "")}".Trim()))
-                    .ToList();
-                if (displayRows.Count == 0) displayRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-                sections.Add(new DetailSection(loc["Detail.Displays"], displayRows));
-
-                var audioRows = inv.AudioDevices
-                    .Select(a => (IDetailRow)new StaticRow(a.Name ?? loc["Common.NotAvailable"], $"{a.Manufacturer ?? ""}  {a.Status ?? ""}".Trim()))
-                    .ToList();
-                if (audioRows.Count == 0) audioRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-                sections.Add(new DetailSection(loc["Detail.Audio"], audioRows));
-
-                var usbRows = inv.UsbDevices
-                    .Select(u => (IDetailRow)new StaticRow(
-                        u.Name ?? loc["Common.NotAvailable"],
-                        $"{u.Manufacturer ?? ""}  {u.Status ?? ""}  {u.PnpDeviceId ?? ""}".Trim()))
-                    .ToList();
-                if (usbRows.Count == 0) usbRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-                sections.Add(new DetailSection(loc["Detail.Usb"], usbRows));
-
-                var kbRows = inv.Keyboards
-                    .Select(k => (IDetailRow)new StaticRow(k.Name ?? loc["Common.NotAvailable"], $"{k.Description ?? ""}  {k.Status ?? ""}".Trim()))
-                    .ToList();
-                if (kbRows.Count == 0) kbRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-                sections.Add(new DetailSection(loc["Detail.Keyboards"], kbRows));
-
-                var mouseRows = inv.PointingDevices
-                    .Select(m => (IDetailRow)new StaticRow(m.Name ?? loc["Common.NotAvailable"], $"{m.Description ?? ""}  {m.Status ?? ""}".Trim()))
-                    .ToList();
-                if (mouseRows.Count == 0) mouseRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-                sections.Add(new DetailSection(loc["Detail.Mice"], mouseRows));
-
-                var printerRows = inv.Printers
-                    .Select(pr => (IDetailRow)new StaticRow((pr.Name ?? loc["Common.NotAvailable"]) + (pr.IsDefault == true ? "  ⭐" : ""), pr.DriverName ?? ""))
-                    .ToList();
-                if (printerRows.Count == 0) printerRows.Add(new StaticRow(loc["Common.NotAvailable"], loc["Common.NotAvailable"]));
-                sections.Add(new DetailSection(loc["Detail.Printers"], printerRows));
-                break;
-            }
         }
 
         if (sensorFilter is not null)
@@ -535,6 +493,7 @@ public partial class DetailPage : UserControl
             SensorRows = sensorRows,
             SmartFilter = smartFilter ?? (_ => []),
             SmartRows = smartRows,
+            BuiltCapturedAt = vm.Snapshot.CapturedAt,
         };
     }
 
@@ -596,7 +555,7 @@ public partial class DetailPage : UserControl
     /// <summary>把 Win32_NetworkAdapter.NetConnectionStatus 转成本地化文案。</summary>
     private static string NetStatusText(int? status, LocalizationManager loc)
     {
-        if (status is not int s) return loc["Common.NotAvailable"];
+        if (status is not int s) return loc["Detail.NetStatus.0"];
         var key = $"Detail.NetStatus.{s}";
         var text = loc[key];
         return text == key ? loc["Detail.NetStatus.Unknown"] : text;
@@ -620,7 +579,9 @@ public partial class DetailPage : UserControl
     {
         var used = GpuSensorValue(vm, "GPU Memory Used");
         var total = GpuSensorValue(vm, "GPU Memory Total");
-        return used.HasValue && total is > 0 ? $"{(used.Value / total.Value * 100).ToString("0.0", CultureInfo.InvariantCulture)}%" : "—";
+        return used.HasValue && total is > 0
+            ? $"{(Math.Min(100, used.Value / total.Value * 100)).ToString("0.0", CultureInfo.InvariantCulture)}%"
+            : "—";
     }
 
     private static string ChemistryText(string? code, LocalizationManager loc)

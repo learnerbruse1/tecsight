@@ -90,4 +90,53 @@ There is 1 interface on the system:
 
         Assert.Empty(result);
     }
+
+    [Fact]
+    public void Parse_MultipleInterfaces_ReturnsAllInterfaces()
+    {
+        const string output = """
+There are 2 interfaces on the system:
+
+    Name                   : Wi-Fi
+    State                  : connected
+    SSID                   : Home
+
+    Name                   : Ethernet
+    State                  : connected
+    SSID                   :
+""";
+
+        var result = WlanInfoProvider.Parse(output);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("Wi-Fi", result[0].Name);
+        Assert.Equal("Ethernet", result[1].Name);
+    }
+
+    [Fact]
+    public void Parse_MalformedLines_AreIgnored()
+    {
+        var result = WlanInfoProvider.Parse("just some text\r\nAnother line without colon");
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Parse_InvalidNumericFields_AreNull()
+    {
+        const string output = """
+    Name                   : Wi-Fi
+    Channel                : not-a-number
+    Receive rate (Mbps)    : N/A
+    Transmit rate (Mbps)   : not-a-number
+    Signal                 : unknown
+""";
+
+        var w = Assert.Single(WlanInfoProvider.Parse(output));
+
+        Assert.Null(w.Channel);
+        Assert.Null(w.ReceiveRateMbps);
+        Assert.Null(w.TransmitRateMbps);
+        Assert.Null(w.SignalPercent);
+    }
 }

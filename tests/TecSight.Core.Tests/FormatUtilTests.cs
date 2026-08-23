@@ -8,6 +8,7 @@ public class FormatUtilLinkSpeedTests
     [InlineData(long.MaxValue)]        // WMI 哨兵值：速率未知
     [InlineData(9_223_372_036_854_775_806L)] // 接近哨兵
     [InlineData(1_000_000_000_000L)]   // 1 Tbps 及以上视为异常
+    [InlineData(-1)]                    // 负值也视为不可用
     public void LinkSpeed_ReturnsNullText_ForImplausibleValues(long bps)
     {
         Assert.Equal("N/A", FormatUtil.LinkSpeed(bps, "N/A"));

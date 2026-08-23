@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Management;
 using System.Runtime.InteropServices;
+using Vanara.PInvoke;
 using TecSight.Core.Models;
 
 namespace TecSight.Core;
@@ -15,11 +16,21 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     public HardwareInventory Capture()
     {
         var inv = new HardwareInventory { ComputerName = SafeString(() => Environment.MachineName) };
-        inv.OsCaption = QueryFirstString("SELECT Caption FROM Win32_OperatingSystem", "Caption");
-        inv.OsVersion = QueryFirstString("SELECT Version FROM Win32_OperatingSystem", "Version");
-        inv.OsArchitecture = QueryFirstString("SELECT OSArchitecture FROM Win32_OperatingSystem", "OSArchitecture");
-        inv.OsInstallDate = FormatCimDate(QueryFirstString("SELECT InstallDate FROM Win32_OperatingSystem", "InstallDate"));
-        inv.LastBootTime = FormatCimDate(QueryFirstString("SELECT LastBootUpTime FROM Win32_OperatingSystem", "LastBootUpTime"));
+        var os = SafeQuery(
+            "SELECT Caption, Version, OSArchitecture, InstallDate, LastBootUpTime FROM Win32_OperatingSystem",
+            row => new
+            {
+                Caption = GetString(row, "Caption"),
+                Version = GetString(row, "Version"),
+                Architecture = GetString(row, "OSArchitecture"),
+                InstallDate = GetString(row, "InstallDate"),
+                LastBoot = GetString(row, "LastBootUpTime"),
+            }).FirstOrDefault();
+        inv.OsCaption = os?.Caption;
+        inv.OsVersion = os?.Version;
+        inv.OsArchitecture = os?.Architecture;
+        inv.OsInstallDate = FormatCimDate(os?.InstallDate);
+        inv.LastBootTime = FormatCimDate(os?.LastBoot);
         inv.FirmwareType = SafeString(() => Environment.GetEnvironmentVariable("firmware_type")?.Trim() is { Length: > 0 } f ? f : null);
         inv.Cpus = QueryCpus();
         inv.MemoryModules = QueryMemory();
@@ -58,7 +69,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 GetString(row, "SocketDesignation"),
                 GetInt(row, "L2CacheSize"),
                 GetInt(row, "L3CacheSize"),
-                GetInt(row, "CurrentClockSpeed"),
+                GetInt(row, "CurrentClockSpeed") is int currentClock && currentClock > 0 ? currentClock : null,
                 GetString(row, "ProcessorId"),
                 GetBool(row, "VirtualizationFirmwareEnabled"),
                 GetBool(row, "VMMonitorModeExtensions")));
@@ -78,13 +89,13 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
         return SafeQuery(
             "SELECT Capacity, Speed, Manufacturer, PartNumber, SerialNumber, SMBIOSMemoryType, ConfiguredClockSpeed, ConfiguredVoltage, DeviceLocator, FormFactor, DataWidth, TotalWidth FROM Win32_PhysicalMemory",
             row => new MemoryModuleInfo(
-                GetString(row, "Capacity"),
-                GetString(row, "Speed"),
+                NonZeroString(GetString(row, "Capacity")),
+                NonZeroString(GetString(row, "Speed")),
                 GetString(row, "Manufacturer"),
                 GetString(row, "PartNumber"),
                 GetString(row, "SerialNumber"),
                 MemoryTypeName(GetInt(row, "SMBIOSMemoryType")),
-                GetString(row, "ConfiguredClockSpeed"),
+                NonZeroString(GetString(row, "ConfiguredClockSpeed")),
                 GetInt(row, "ConfiguredVoltage") is int mv && mv > 0 ? $"{(mv / 1000.0).ToString("0.000", CultureInfo.InvariantCulture)} V" : null,
                 GetString(row, "DeviceLocator"),
                 FormFactorName(GetInt(row, "FormFactor")),
@@ -109,11 +120,11 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
             row => new
             {
                 Slots = GetInt(row, "MemoryDevices"),
-                MaxKb = GetInt(row, "MaxCapacity"),
+                MaxKb = GetLong(row, "MaxCapacity"),
                 Ecc = GetInt(row, "MemoryErrorCorrection"),
             }).FirstOrDefault();
         if (arr is null) return null;
-        long? maxBytes = arr.MaxKb is int kb && kb > 0 ? kb * 1024L : null;
+        long? maxBytes = arr.MaxKb is long kb && kb > 0 ? kb * 1024L : null;
         return new MemoryTopologyInfo(arr.Slots, usedSlots, maxBytes, ErrorCorrectionName(arr.Ecc));
     }
 
@@ -224,7 +235,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
             try
             {
                 var size = (uint)buffer.Length;
-                var ret = GetFirmwareEnvironmentVariable("SecureBoot", "{8be4df61-93ca-11d2-aa0d-00e098032b8c}", handle.AddrOfPinnedObject(), size);
+                var ret = Kernel32.GetFirmwareEnvironmentVariable("SecureBoot", "{8be4df61-93ca-11d2-aa0d-00e098032b8c}", handle.AddrOfPinnedObject(), size);
                 return ret > 0 ? buffer[0] != 0 : null;
             }
             finally
@@ -246,9 +257,6 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 row => (GetString(row, "SpecVersion") ?? GetString(row, "ManufacturerVersion"))?.Trim())
             .FirstOrDefault();
     }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern uint GetFirmwareEnvironmentVariable(string lpName, string lpGuid, IntPtr pBuffer, uint nSize);
 
     private static string? MemoryTypeName(int? t) => t switch
     {
@@ -453,7 +461,7 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
                 PnpDeviceId: null,
                 SerialNumber: DecodeWmiString(row["SerialNumberID"]),
                 ManufactureYear: GetInt(row, "YearOfManufacture")));
-        if (edid.Count > 0) return edid;
+        if (edid.Any(d => !string.IsNullOrWhiteSpace(d.Name) || !string.IsNullOrWhiteSpace(d.Manufacturer))) return edid;
 
         return SafeQuery(
             "SELECT Name, MonitorManufacturer, PNPDeviceID FROM Win32_DesktopMonitor",
@@ -633,6 +641,8 @@ public sealed class WmiInventoryProvider : IHardwareInventoryProvider
     {
         try { return o[p]?.ToString(); } catch { return null; }
     }
+
+    private static string? NonZeroString(string? value) => value == "0" ? null : value;
 
     private static IReadOnlyList<string> GetStringArray(ManagementBaseObject o, string p)
     {

@@ -37,12 +37,12 @@ public static class CompatibilityReporter
         sb.AppendLine();
 
         sb.AppendLine("== Live metrics ==");
-        Row(sb, "CPU usage", m.CpuUsagePercent.HasValue ? 1 : 0, Pct(m.CpuUsagePercent));
-        Row(sb, "Memory usage", m.MemoryUsagePercent.HasValue ? 1 : 0, Pct(m.MemoryUsagePercent));
-        Row(sb, "GPU usage", m.GpuUsagePercent.HasValue ? 1 : 0, Pct(m.GpuUsagePercent));
-        Row(sb, "Disk I/O", m.DiskReadBytesPerSec.HasValue ? 1 : 0, m.DiskReadBytesPerSec.HasValue ? "OK" : "N/A");
-        Row(sb, "Network throughput", m.NetworkDownloadBps.HasValue ? 1 : 0, m.NetworkDownloadBps.HasValue ? "OK" : "N/A");
-        Row(sb, "Battery charge", m.BatteryChargePercent.HasValue ? 1 : 0, Pct(m.BatteryChargePercent));
+        Row(sb, "CPU usage", Found(m.CpuUsagePercent), Pct(m.CpuUsagePercent));
+        Row(sb, "Memory usage", Found(m.MemoryUsagePercent), Pct(m.MemoryUsagePercent));
+        Row(sb, "GPU usage", Found(m.GpuUsagePercent), Pct(m.GpuUsagePercent));
+        Row(sb, "Disk I/O", Found(m.DiskReadBytesPerSec), Found(m.DiskReadBytesPerSec) == 1 ? "OK" : "N/A");
+        Row(sb, "Network throughput", Found(m.NetworkDownloadBps), Found(m.NetworkDownloadBps) == 1 ? "OK" : "N/A");
+        Row(sb, "Battery charge", Found(m.BatteryChargePercent), Pct(m.BatteryChargePercent));
         sb.AppendLine();
 
         sb.AppendLine($"== Sensors: {m.Sensors.Count} total ==");
@@ -53,12 +53,14 @@ public static class CompatibilityReporter
         sb.AppendLine();
         sb.AppendLine($"SMART attributes: {m.SmartAttributes.Count}");
         sb.AppendLine($"Process samples: {m.Processes.Count}");
-        sb.AppendLine($"GPU engines: {string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {e.Percent.ToString("0.0", CultureInfo.InvariantCulture)}%"))}");
+        sb.AppendLine($"GPU engines: {string.Join(", ", m.GpuEngines.Select(e => $"{e.EngineType} {FormatUtil.Pct(e.Percent, "N/A")}"))}");
 
         return sb.ToString();
     }
 
-    private static string? Pct(double? v) => v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "N/A";
+    private static string? Pct(double? v) => v is double x && double.IsFinite(x) ? x.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "N/A";
+
+    private static int Found(double? v) => v is double x && double.IsFinite(x) ? 1 : 0;
 
     private static void Row(StringBuilder sb, string label, int found, string? detail)
         => sb.AppendLine($"  [{(found > 0 ? "OK" : "--")}] {label}: {detail ?? "not detected"}");

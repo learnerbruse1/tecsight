@@ -1,4 +1,4 @@
-# TecSight v1.1.0 — Release Notes
+# TecSight v1.2.0 — Release Notes
 
 > 一款 Windows 硬件体检工具：查看设备**所有硬件清单**与**实时使用/运行情况**。跨硬件兼容、免安装、免管理员。
 > A Windows hardware inspector: see your device's **full hardware inventory** and **live usage/status**. Cross-hardware compatible, no install, no admin.
@@ -18,7 +18,7 @@
 - 0 警告构建，99 项单元测试
 
 ## 下载 / Download
-- [TecSight-Setup-1.1.0.exe](installer/Output/TecSight-Setup-1.1.0.exe)（中英双语安装向导，约 47.7 MB）
+- [TecSight-Setup-1.2.0-Windows-x64.exe](installer/Output/TecSight-Setup-1.2.0-Windows-x64.exe)（中英双语安装向导）
 - 或直接运行 `publish/TecSight.App.exe`（自包含单文件）
 
 ## 变更摘要 / Changelog Summary

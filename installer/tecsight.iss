@@ -1,6 +1,6 @@
 ; TecSight 安装程序（Inno Setup 6）
 #define MyAppName "TecSight"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "TecSight contributors"
 #define MyAppExeName "TecSight.App.exe"
 #define MyAppId "{{2EF3FFAB-9293-4D9D-AB74-533A1A52FE40}}"
@@ -16,7 +16,7 @@ DefaultDirName={localappdata}\Programs\TecSight
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=Output
-OutputBaseFilename=TecSight-Setup-{#MyAppVersion}
+OutputBaseFilename=TecSight-Setup-{#MyAppVersion}-Windows-x64
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

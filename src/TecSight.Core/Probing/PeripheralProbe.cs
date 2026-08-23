@@ -12,9 +12,90 @@ public static class PeripheralProbe
     public static IReadOnlyList<PeripheralDevice> Scan()
     {
         var list = new List<PeripheralDevice>();
-        ScanPnP(list);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        ScanPnP(list, seen);
+        ScanHidDevices(list, seen);
+        ScanKeyboards(list, seen);
+        ScanPointingDevices(list, seen);
         ScanUsbDisks(list);
         ScanRemovableDisks(list);
+        return list;
+    }
+
+    private static void ScanHidDevices(List<PeripheralDevice> list, HashSet<string> seen)
+    {
+        try
+        {
+            foreach (var device in HidSharp.DeviceList.Local.GetHidDevices())
+            {
+                string name;
+                try
+                {
+                    name = device.GetProductName();
+                }
+                catch
+                {
+                    name = "";
+                }
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    name = $"HID {device.VendorID:X4}:{device.ProductID:X4}";
+                }
+                var id = $"USB\\VID_{device.VendorID:X4}&PID_{device.ProductID:X4}";
+                var key = "hid|" + name + "|" + id;
+                if (!seen.Add(key)) continue;
+                list.Add(new PeripheralDevice(name, null, "HID Device", "input", "HIDClass",
+                    Detail: null,
+                    Status: "OK",
+                    PnpDeviceId: id));
+            }
+        }
+        catch
+        {
+            // HID 枚举不可用时降级
+        }
+    }
+
+    /// <summary>把硬件清单里的“其他设备”类目转换为外设条目，补足 PnP 扫描可能遗漏的设备。</summary>
+    public static IReadOnlyList<PeripheralDevice> FromInventory(HardwareInventory inv)
+    {
+        var list = new List<PeripheralDevice>();
+        foreach (var d in inv.Displays)
+        {
+            var name = string.IsNullOrWhiteSpace(d.Name) ? d.Manufacturer : d.Name;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            list.Add(new PeripheralDevice(name, d.Manufacturer, "Display", "display", "Monitor",
+                Detail: null,
+                Status: "OK",
+                PnpDeviceId: d.PnpDeviceId,
+                SerialNumber: d.SerialNumber,
+                ManufactureYear: d.ManufactureYear));
+        }
+        foreach (var a in inv.AudioDevices)
+        {
+            if (string.IsNullOrWhiteSpace(a.Name)) continue;
+            list.Add(new PeripheralDevice(a.Name, a.Manufacturer, "Audio", "audio", "MEDIA", Detail: null, Status: a.Status));
+        }
+        foreach (var u in inv.UsbDevices)
+        {
+            if (string.IsNullOrWhiteSpace(u.Name)) continue;
+            list.Add(new PeripheralDevice(u.Name, u.Manufacturer, "USB", "usb", "USB", Detail: null, Status: u.Status, PnpDeviceId: u.PnpDeviceId));
+        }
+        foreach (var k in inv.Keyboards)
+        {
+            if (string.IsNullOrWhiteSpace(k.Name)) continue;
+            list.Add(new PeripheralDevice(k.Name, null, k.Description, "keyboard", "Keyboard", Detail: null, Status: k.Status));
+        }
+        foreach (var m in inv.PointingDevices)
+        {
+            if (string.IsNullOrWhiteSpace(m.Name)) continue;
+            list.Add(new PeripheralDevice(m.Name, null, m.Description, "mouse", "Mouse", Detail: null, Status: m.Status));
+        }
+        foreach (var p in inv.Printers)
+        {
+            if (string.IsNullOrWhiteSpace(p.Name)) continue;
+            list.Add(new PeripheralDevice(p.Name, null, "Printer", "printer", "PrintQueue", Detail: p.DriverName, Status: p.IsDefault == true ? "Default" : null));
+        }
         return list;
     }
 
@@ -26,11 +107,22 @@ public static class PeripheralProbe
         "MEDIA", "AudioEndpoint", "Monitor", "Bluetooth", "PrintQueue", "Image",
     ];
 
-    private static void ScanPnP(List<PeripheralDevice> list)
+    private static void ScanPnP(List<PeripheralDevice> list, HashSet<string> seen)
     {
-        var seen = new HashSet<string>();
+        var monitorInfo = SafeQuery("root\\cimv2",
+            "SELECT PNPDeviceID, ScreenWidth, ScreenHeight FROM Win32_DesktopMonitor",
+            o => new
+            {
+                Id = GetString(o, "PNPDeviceID"),
+                Width = GetInt(o, "ScreenWidth"),
+                Height = GetInt(o, "ScreenHeight"),
+            });
+        var refreshRate = SafeQuery("root\\cimv2",
+            "SELECT CurrentRefreshRate FROM Win32_VideoController",
+            o => GetInt(o, "CurrentRefreshRate")).FirstOrDefault();
+
         var devices = SafeQuery("root\\cimv2",
-            "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID, DriverProvider, DriverVersion, DriverDate, Service, DeviceID, ConfigManagerErrorCode, HardWareID FROM Win32_PnPEntity",
+            "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID, DriverProvider, DriverVersion, DriverDate, Service, DeviceID, ConfigManagerErrorCode, HardwareID FROM Win32_PnPEntity",
             o =>
             {
                 var name = GetString(o, "Name");
@@ -38,23 +130,69 @@ public static class PeripheralProbe
                 var desc = GetString(o, "Description");
                 var mfr = GetString(o, "Manufacturer");
                 var cls = GetString(o, "PNPClass");
+                var id = GetString(o, "PNPDeviceID");
                 if (string.IsNullOrEmpty(cls) || !PeripheralClasses.Contains(cls)) return null; // 只留外设
                 if (cls == "HIDClass" && IsInternalHid(name, desc)) return null;               // 去掉系统 HID 内部件
                 var cat = Classify(cls, name, desc);
-                var key = cat + "|" + name + "|" + mfr;
+                var key = cat + "|" + name + "|" + mfr + "|" + id;
                 if (!seen.Add(key)) return null; // 去重
+                string? resolution = null;
+                if (cat == "display")
+                {
+                    var mi = monitorInfo.FirstOrDefault(x => !string.IsNullOrEmpty(x.Id) && x.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+                    if (mi is { Width: int w, Height: int h } && w > 0 && h > 0)
+                    {
+                        resolution = $"{w} × {h}";
+                    }
+                }
                 return new PeripheralDevice(name, mfr, desc, cat, cls, Detail: null,
                     Status: GetString(o, "Status"),
-                    PnpDeviceId: GetString(o, "PNPDeviceID"),
+                    PnpDeviceId: id,
                     DriverProvider: GetString(o, "DriverProvider"),
                     DriverVersion: GetString(o, "DriverVersion"),
                     DriverDate: FormatCimDate(GetString(o, "DriverDate")),
                     Service: GetString(o, "Service"),
                     DeviceId: GetString(o, "DeviceID"),
                     ConfigManagerErrorCode: GetInt(o, "ConfigManagerErrorCode"),
-                    HardwareId: GetFirstString(o, "HardWareID"));
+                    HardwareId: GetFirstString(o, "HardwareID"),
+                    Resolution: resolution,
+                    RefreshRate: refreshRate);
             });
         list.AddRange(devices.Where(d => d is not null)!);
+    }
+
+    private static void ScanKeyboards(List<PeripheralDevice> list, HashSet<string> seen)
+    {
+        list.AddRange(SafeQuery("root\\cimv2",
+            "SELECT Name, Description, Manufacturer, Status, PNPDeviceID FROM Win32_Keyboard",
+            o =>
+            {
+                var name = GetString(o, "Name");
+                if (string.IsNullOrWhiteSpace(name)) return null;
+                var mfr = GetString(o, "Manufacturer");
+                var id = GetString(o, "PNPDeviceID");
+                var key = "keyboard|" + name + "|" + mfr + "|" + id;
+                if (!seen.Add(key)) return null;
+                return new PeripheralDevice(name, mfr, GetString(o, "Description"), "keyboard", "Keyboard",
+                    Detail: null, Status: GetString(o, "Status"), PnpDeviceId: id);
+            }).Where(d => d is not null)!);
+    }
+
+    private static void ScanPointingDevices(List<PeripheralDevice> list, HashSet<string> seen)
+    {
+        list.AddRange(SafeQuery("root\\cimv2",
+            "SELECT Name, Description, Manufacturer, Status, PNPDeviceID FROM Win32_PointingDevice",
+            o =>
+            {
+                var name = GetString(o, "Name");
+                if (string.IsNullOrWhiteSpace(name)) return null;
+                var mfr = GetString(o, "Manufacturer");
+                var id = GetString(o, "PNPDeviceID");
+                var key = "mouse|" + name + "|" + mfr + "|" + id;
+                if (!seen.Add(key)) return null;
+                return new PeripheralDevice(name, mfr, GetString(o, "Description"), "mouse", "Mouse",
+                    Detail: null, Status: GetString(o, "Status"), PnpDeviceId: id);
+            }).Where(d => d is not null)!);
     }
 
     private static bool IsInternalHid(string? name, string? desc)
@@ -91,7 +229,7 @@ public static class PeripheralProbe
                 var fs = GetString(o, "FileSystem");
                 return new PeripheralDevice(id, Manufacturer: null, Description: "Removable Disk",
                     Category: "storage", PnpClass: "LogicalDisk",
-                    Detail: $"{id}  {FormatUtil.Bytes(size ?? 0, "")}  free {FormatUtil.Bytes(free ?? 0, "")}  {fs}");
+                    Detail: $"{id}  {FormatUtil.Bytes(size.HasValue ? (double?)size.Value : null, "N/A")}  free {FormatUtil.Bytes(free.HasValue ? (double?)free.Value : null, "N/A")}  {fs}");
             }));
     }
 
@@ -118,6 +256,8 @@ public static class PeripheralProbe
                 if (n.Contains("Storage", StringComparison.OrdinalIgnoreCase) || n.Contains("Disk", StringComparison.OrdinalIgnoreCase) || n.Contains("存储")) return "storage";
                 if (n.Contains("Audio", StringComparison.OrdinalIgnoreCase) || n.Contains("耳机") || n.Contains("Headset")) return "audio";
                 return "usb";
+            case "USBHub":
+                return "hub";
             case "HIDClass":
                 if (n.Contains("Keyboard", StringComparison.OrdinalIgnoreCase) || n.Contains("键盘")) return "keyboard";
                 if (n.Contains("Mouse", StringComparison.OrdinalIgnoreCase) || n.Contains("Pointer", StringComparison.OrdinalIgnoreCase) || n.Contains("鼠标")) return "mouse";

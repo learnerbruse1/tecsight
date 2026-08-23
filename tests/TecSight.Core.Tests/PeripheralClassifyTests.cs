@@ -25,6 +25,7 @@ public class PeripheralClassifyTests
     [InlineData("USB", "USB Mass Storage Device", null, "storage")]
     [InlineData("USB", "USB Audio Device", null, "audio")]
     [InlineData("USB", "Generic USB Device", null, "usb")]
+    [InlineData("USBHub", "Generic USB Hub", null, "hub")]
     public void Classify_UsbByDescription(string pnpClass, string name, string? desc, string expected)
     {
         Assert.Equal(expected, PeripheralProbe.Classify(pnpClass, name, desc));

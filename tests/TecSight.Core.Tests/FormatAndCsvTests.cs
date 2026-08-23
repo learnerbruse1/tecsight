@@ -22,6 +22,7 @@ public class FormatBytesBoundaryTests
     public void Bytes_Null_ReturnsNullText()
     {
         Assert.Equal("N/A", FormatUtil.Bytes(null, "N/A"));
+        Assert.Equal("N/A", FormatUtil.Bytes(double.NaN, "N/A"));
     }
 }
 
@@ -52,7 +53,29 @@ public class ExportHistoryCsvNullTests
     {
         var csv = new SnapshotExporter().ExportHistoryCsv([]);
 
-        Assert.Equal(1, csv.TrimEnd().Split('\n').Length);
+        Assert.Single(csv.TrimEnd().Split('\n'));
         Assert.StartsWith("Timestamp,CpuPercent", csv);
+    }
+
+    [Fact]
+    public void ExportHistoryCsv_NonFiniteValuesProduceEmptyCells()
+    {
+        var history = new[]
+        {
+            new LiveMetrics
+            {
+                Timestamp = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                CpuUsagePercent = double.NaN,
+                MemoryUsagePercent = 42,
+                GpuUsagePercent = double.PositiveInfinity,
+            },
+        };
+
+        var csv = new SnapshotExporter().ExportHistoryCsv(history);
+        var row = csv.TrimEnd().Split('\n')[1].Split(',');
+
+        Assert.Equal("", row[1]); // CpuPercent NaN -> empty
+        Assert.Equal("42", row[3]); // MemoryPercent finite stays
+        Assert.Equal("", row[6]); // GpuPercent Infinity -> empty
     }
 }

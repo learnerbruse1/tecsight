@@ -12,6 +12,9 @@ public class UptimeFormatTests
     [InlineData(3661.0, "zh", "1 小时 1 分")]
     [InlineData(90061.0, "en", "1d 1h")]
     [InlineData(null, "zh", "—")]
+    [InlineData(double.NaN, "zh", "—")]
+    [InlineData(double.PositiveInfinity, "en", "—")]
+    [InlineData(-1d, "zh", "—")]
     public void Uptime_FormatsAccurately(double? seconds, string lang, string expected)
     {
         Assert.Equal(expected, Format.Uptime(seconds, lang));
