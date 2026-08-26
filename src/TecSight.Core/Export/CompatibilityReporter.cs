@@ -46,7 +46,7 @@ public static class CompatibilityReporter
         sb.AppendLine();
 
         sb.AppendLine($"== Sensors: {m.Sensors.Count} total ==");
-        foreach (var g in m.Sensors.GroupBy(x => x.HardwareName).OrderByDescending(x => x.Count()).Take(15))
+        foreach (var g in m.Sensors.GroupBy(x => x.HardwareName).OrderByDescending(x => x.Count()))
         {
             sb.AppendLine($"  {g.Key}: {g.Count()} reading(s)");
         }

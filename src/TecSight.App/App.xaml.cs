@@ -10,6 +10,7 @@ public partial class App : Application
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TecSight", "logs");
 
     private static Mutex? _singleInstance;
+    private bool _errorDialogShown;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -39,10 +40,13 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             LogError(args.Exception);
+            args.Handled = true;
+            // 同一个会话内只弹一次框，避免同一错误在每次点击时反复打断用户；每次异常仍会写入日志。
+            if (_errorDialogShown) return;
+            _errorDialogShown = true;
             var loc = Localization.LocalizationManager.Instance;
             MessageBox.Show(loc["Common.UnhandledError"] + "\n" + args.Exception.Message + "\n\n" + loc["Common.ErrorLogged"], "TecSight",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
-            args.Handled = true;
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => LogError(args.ExceptionObject as Exception);
 

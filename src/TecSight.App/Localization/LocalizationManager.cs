@@ -79,6 +79,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Overview.Memory", "内存使用率", "Memory Usage");
         Both("Overview.Disk", "磁盘 I/O", "Disk I/O");
         Both("Overview.Gpu", "GPU 使用率", "GPU Usage");
+        Both("Overview.Vram", "显存使用率", "VRAM Usage");
         Both("Overview.Network", "网络", "Network");
         Both("Overview.Battery", "电池", "Battery");
         Both("Overview.KeyTemp", "关键温度", "Key Temp");
@@ -202,7 +203,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         Both("Detail.HideNetworkNoise", "隐藏网络过滤器噪音", "Hide network filter noise");
                 Both("Detail.NoSmart", "无 SMART 属性（可能需要管理员权限）", "No SMART attributes (may require admin)");
         Both("Detail.NoCpuTemp", "未检测到 CPU 温度", "No CPU temperature detected");
-        Both("Detail.AdminHint", "部分传感器（CPU 温度 / 风扇转速）需要管理员权限或硬件支持，可用右上角按钮以管理员权限重启", "Some sensors (CPU temp / fan speed) need admin rights or hardware support — use the top-right button to restart as admin");
+        Both("Detail.AdminHint", "部分传感器（CPU 温度 / 风扇转速）需要管理员权限；若硬件本身未暴露这些接口（如无 EC/SuperIO），任何权限都无法读取", "Some sensors (CPU temp / fan speed) require admin rights; if the hardware does not expose them (e.g. no EC/SuperIO), no privilege level can read them");
         Both("Detail.BatteryLevel", "电量", "Charge Level");
         Both("Detail.Ip", "IP 地址", "IP Address");
         Both("Detail.Gateway", "网关", "Gateway");

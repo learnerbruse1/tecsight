@@ -8,6 +8,7 @@ public sealed class LiveMetricsHistory
     private readonly int _capacity;
     private readonly Queue<LiveMetrics> _items = new();
     private readonly object _gate = new();
+    private IReadOnlyList<LiveMetrics> _snapshot = Array.Empty<LiveMetrics>();
 
     public LiveMetricsHistory(int capacity)
     {
@@ -24,6 +25,8 @@ public sealed class LiveMetricsHistory
             {
                 _items.Dequeue();
             }
+            // 写入频率远低于读取频率：写入时生成一次不可变快照，读取直接返回引用，避免每秒多次整段数组复制。
+            _snapshot = Array.AsReadOnly(_items.ToArray());
         }
     }
 
@@ -33,7 +36,7 @@ public sealed class LiveMetricsHistory
         {
             lock (_gate)
             {
-                return _items.ToArray();
+                return _snapshot;
             }
         }
     }

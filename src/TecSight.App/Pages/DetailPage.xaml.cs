@@ -536,7 +536,7 @@ public partial class DetailPage : UserControl
         sels.Add(sel);
     }
 
-    private static List<double?> Series(MainViewModel vm, Func<LiveMetrics, double?> sel) => vm.History.Select(sel).ToList();
+    private static double?[] Series(MainViewModel vm, Func<LiveMetrics, double?> sel) => vm.History.Select(sel).ToArray();
 
     private static string FormatSensorLabel(SensorReading s) => $"{s.HardwareName} / {s.SensorName}";
 

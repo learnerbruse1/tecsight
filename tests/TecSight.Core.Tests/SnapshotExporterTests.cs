@@ -89,13 +89,13 @@ public class SnapshotExporterDetailsTests
         });
 
     [Fact]
-    public void ExportTxt_TruncatesLongSensorList()
+    public void ExportTxt_IncludesAllSensorsWithoutTruncation()
     {
         var txt = new SnapshotExporter().ExportTxt(MakeRichSnapshot());
 
         Assert.Contains("Sensor0", txt);
-        Assert.Contains("其余 40 条", txt);
-        Assert.DoesNotContain("Sensor99", txt);
+        Assert.Contains("Sensor99", txt);
+        Assert.DoesNotContain("其余", txt);
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class SnapshotExporterDetailsTests
     }
 
     [Fact]
-    public void ExportTxt_TruncatesOtherDeviceNamesAfterEight()
+    public void ExportTxt_IncludesAllOtherDeviceNamesWithoutTruncation()
     {
         var snap = new Snapshot(
             DateTimeOffset.UtcNow,
@@ -127,8 +127,9 @@ public class SnapshotExporterDetailsTests
 
         Assert.Contains("USB-1", txt);
         Assert.Contains("USB-8", txt);
-        Assert.DoesNotContain("USB-9", txt);
-        Assert.Contains("…", txt);
+        Assert.Contains("USB-9", txt);
+        Assert.Contains("USB-10", txt);
+        Assert.DoesNotContain("…", txt);
     }
 
     [Fact]
@@ -457,6 +458,34 @@ public class SnapshotExporterHtmlTests
         Assert.Contains("Keyboard-1", html);
         Assert.Contains("Mouse-1", html);
         Assert.Contains("Printer-1", html);
+    }
+
+    [Fact]
+    public void ExportHtml_IncludesAllSensorsSmartAndOtherDevicesWithoutTruncation()
+    {
+        var snap = new Snapshot(
+            DateTimeOffset.UtcNow,
+            new HardwareInventory
+            {
+                AudioDevices = Enumerable.Range(1, 10).Select(i => new AudioDeviceInfo($"Audio-{i}", null, null)).ToList(),
+                UsbDevices = Enumerable.Range(1, 10).Select(i => new UsbDeviceInfo($"USB-{i}", null)).ToList(),
+            },
+            new LiveMetrics
+            {
+                Timestamp = DateTimeOffset.UtcNow,
+                Sensors = Enumerable.Range(0, 100).Select(i => new SensorReading("HW", $"Sensor{i}", i, "°C")).ToList(),
+                SmartAttributes = Enumerable.Range(0, 100)
+                    .Select(i => new SmartAttributeReading("Disk", (byte)i, $"Attr{i}", 100, (byte)100, (byte)10, "0"))
+                    .ToList(),
+            });
+
+        var html = new SnapshotExporter().ExportHtml(snap);
+
+        Assert.Contains("Sensor99", html);
+        Assert.Contains("Attr99", html);
+        Assert.Contains("Audio-10", html);
+        Assert.Contains("USB-10", html);
+        Assert.DoesNotContain("其余", html);
     }
 
     [Fact]

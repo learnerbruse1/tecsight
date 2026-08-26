@@ -1,5 +1,8 @@
 ﻿using LibreHardwareMonitor.Hardware;
 using LibreHardwareMonitor.Hardware.Storage;
+using System.Management;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using TecSight.Core.Models;
 
 namespace TecSight.Core;
@@ -30,11 +33,12 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
     };
     private readonly object _gate = new();
     private bool _opened;
-    private bool _openFailed;
+    private DateTimeOffset _lastOpenAttemptUtc = DateTimeOffset.MinValue;
     private IReadOnlyList<SensorReading>? _cachedSensors;
     private DateTimeOffset _lastSensorsUtc = DateTimeOffset.MinValue;
     private IReadOnlyList<SmartAttributeReading>? _cachedSmart;
     private DateTimeOffset _lastSmartUtc = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastThermalFallbackUtc = DateTimeOffset.MinValue;
     private const double SensorIntervalSeconds = 2.0; // 温度/风扇变化慢，2 秒更新一次足够
     private const double SmartIntervalSeconds = 5.0;  // SMART 属性基本不变，5 秒足够
 
@@ -43,10 +47,13 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
 
     private void EnsureOpened()
     {
-        if (_opened || _openFailed) return;
+        if (_opened) return;
         lock (_gate)
         {
-            if (_opened || _openFailed) return;
+            if (_opened) return;
+            // 打开失败不永久放弃：30 秒后重试（例如权限提升或驱动加载临时失败后可恢复）。
+            if (DateTimeOffset.UtcNow - _lastOpenAttemptUtc < TimeSpan.FromSeconds(30)) return;
+            _lastOpenAttemptUtc = DateTimeOffset.UtcNow;
             try
             {
                 _computer.Open();
@@ -54,7 +61,7 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
             }
             catch
             {
-                _openFailed = true;
+                // 保持关闭，下一次采集周期再重试
             }
         }
     }
@@ -80,6 +87,15 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
             catch
             {
                 // 采集过程中异常时返回已收集部分（降级）
+            }
+            // LibreHardwareMonitor 在一些新机型上读不到 CPU 温度/风扇（EC/SuperIO 未暴露）。
+            // 此时用 Windows 自带 ACPI 热区兜底，覆盖能暴露热区的机型；两者都没有则保持不可用。
+            var hasCpuTemp = result.Any(s => s.Unit == "°C" && HardwareClassifier.MatchesCpuHw(s.HardwareName));
+            if (!hasCpuTemp && DateTimeOffset.UtcNow - _lastThermalFallbackUtc >= TimeSpan.FromSeconds(60))
+            {
+                // 每 60 秒最多探测一次，避免在既不支持热区设备也不支持 WMI 热区的机器上频繁超时。
+                _lastThermalFallbackUtc = DateTimeOffset.UtcNow;
+                AppendThermalZoneFallback(result);
             }
             _cachedSensors = result;
             _lastSensorsUtc = DateTimeOffset.UtcNow;
@@ -148,6 +164,84 @@ public sealed class LibreHardwareSensorProvider : ISensorProvider, ISmartProvide
             Visit(sub, result);
         }
     }
+
+    /// <summary>ACPI 热区温度兜底：\\.\ThermalZone（IOCTL_THERMAL_READ_TEMPERATURE）+ WMI MSAcpi_ThermalZoneTemperature。</summary>
+    private static void AppendThermalZoneFallback(List<SensorReading> result)
+    {
+        // 1) Windows 热管理器设备（无需管理员）。
+        try
+        {
+            using var handle = CreateFile(@"\\.\ThermalZone", 0x80000000u, 3, IntPtr.Zero, 3, 0x80, IntPtr.Zero);
+            if (!handle.IsInvalid)
+            {
+                var input = new byte[8];
+                var output = new byte[4];
+                if (DeviceIoControl(handle, 0x294090, input, 8, output, 4, out _, IntPtr.Zero))
+                {
+                    var tenthsKelvin = BitConverter.ToUInt32(output, 0);
+                    var celsius = ThermalZoneCelsius(tenthsKelvin);
+                    if (celsius.HasValue)
+                    {
+                        result.Add(new SensorReading("CPU Thermal Zone", "ACPI Thermal Zone",
+                            celsius.Value, "°C"));
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // 设备不存在或不可读时忽略
+        }
+
+        // 2) WMI 热区（许多笔记本无需管理员）。
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("root\\WMI",
+                "SELECT InstanceName, CurrentTemperature FROM MSAcpi_ThermalZoneTemperature WHERE Active=TRUE",
+                new System.Management.EnumerationOptions { Timeout = TimeSpan.FromSeconds(5) });
+            using var results = searcher.Get();
+            foreach (ManagementBaseObject o in results)
+            {
+                uint tenthsKelvin;
+                try
+                {
+                    tenthsKelvin = Convert.ToUInt32(o["CurrentTemperature"]);
+                }
+                catch
+                {
+                    continue;
+                }
+                var celsius = ThermalZoneCelsius(tenthsKelvin);
+                if (!celsius.HasValue) continue;
+                var instance = o["InstanceName"]?.ToString() ?? "";
+                var zone = instance[(instance.LastIndexOf('\\') + 1)..];
+                result.Add(new SensorReading("CPU Thermal Zone", $"Thermal Zone {zone}",
+                    celsius.Value, "°C"));
+            }
+        }
+        catch
+        {
+            // 类不存在或拒绝访问时忽略
+        }
+    }
+
+    /// <summary>把 ACPI 热区温度（十分之一开尔文）转成摄氏度，异常值返回 null。</summary>
+    internal static double? ThermalZoneCelsius(uint tenthsKelvin)
+    {
+        if (tenthsKelvin is 0 or > 5000) return null; // 约 -273.15..226.85°C 的合理区间
+        return Math.Round(tenthsKelvin / 10.0 - 273.15, 1);
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern SafeFileHandle CreateFile(
+        string lpFileName, uint dwDesiredAccess, uint dwShareMode, IntPtr lpSecurityAttributes,
+        uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DeviceIoControl(
+        SafeFileHandle hDevice, uint dwIoControlCode, byte[]? lpInBuffer, uint nInBufferSize,
+        byte[]? lpOutBuffer, uint nOutBufferSize, out uint lpBytesReturned, IntPtr lpOverlapped);
 
     private static void VisitSmart(IHardware hardware, List<SmartAttributeReading> result)
     {

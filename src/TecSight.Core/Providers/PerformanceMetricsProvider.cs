@@ -67,7 +67,9 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             Timestamp = ts,
             CpuUsagePercent = Clamp01(ReadCounter(_cpu)),
             CpuFrequencyMhz = ReadCounter(_cpuFreq),
-            MemoryUsagePercent = Clamp01(ReadCounter(_memoryPercent)),
+            // 内存百分比与同一快照中的“已用/总计”必须口径一致：
+            // 优先按物理内存已用/总计计算；性能计数器不可用时才回退（其口径是提交量，会与物理内存对不上）。
+            MemoryUsagePercent = PhysicalMemoryPercent(used, total) ?? Clamp01(ReadCounter(_memoryPercent)),
             MemoryUsedBytes = used,
             MemoryTotalBytes = total,
             DiskReadBytesPerSec = ReadCounter(_diskRead),
@@ -139,10 +141,12 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
             var dt = (now - _prevProcessTime).TotalSeconds;
             var all = Process.GetProcesses();
             var list = new List<ProcessUsage>(all.Length);
+            var liveIds = new HashSet<int>(all.Length);
             foreach (var p in all)
             {
                 try
                 {
+                    liveIds.Add(p.Id);
                     var name = string.IsNullOrEmpty(p.ProcessName) ? $"PID {p.Id}" : p.ProcessName;
                     var mem = p.WorkingSet64;
                     double? cpuPct = null;
@@ -164,7 +168,12 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
                 }
             }
             _prevProcessTime = now;
-            if (_prevProcessCpu.Count > 2000) _prevProcessCpu.Clear();
+            // 只保留仍在运行的 PID 的上一帧 CPU 时间，已退出进程的键立即清理，
+            // 避免长时间运行后字典无限累积（原先超过 2000 条才整体清空，会瞬间丢失所有增量）。
+            foreach (var pid in _prevProcessCpu.Keys.Where(pid => !liveIds.Contains(pid)).ToList())
+            {
+                _prevProcessCpu.Remove(pid);
+            }
             var top = list.OrderByDescending(x => x.CpuPercent ?? -1).Take(20).ToList();
             var result = (top, all.Length);
             _cachedProcesses = result;
@@ -329,6 +338,16 @@ public sealed class PerformanceMetricsProvider : ILiveMetricsProvider, IDisposab
         if (v is null) return null;
         if (!double.IsFinite(v.Value)) return null;
         return Math.Clamp(v.Value, 0, 100);
+    }
+
+    /// <summary>物理内存使用率（与“已用/总计”同口径）：已用 ÷ 总计 × 100，无效输入返回 null。</summary>
+    internal static double? PhysicalMemoryPercent(double? used, double? total)
+    {
+        if (used is not double u || total is not double t || t <= 0 || !double.IsFinite(u) || !double.IsFinite(t))
+        {
+            return null;
+        }
+        return Math.Clamp(u / t * 100, 0, 100);
     }
 
     private static void DisposeAll(IEnumerable<PerformanceCounter> counters)

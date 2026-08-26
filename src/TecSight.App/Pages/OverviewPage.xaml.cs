@@ -56,6 +56,14 @@ public partial class OverviewPage : UserControl
             .Select(v => v!.Value)
             .ToList();
         double? fanRpm = fanVals.Count > 0 ? fanVals.Max() : null;
+        var vramUsed = GpuSensorSum(m.Sensors, "GPU Memory Used");
+        var vramTotal = GpuSensorSum(m.Sensors, "GPU Memory Total");
+        var vramValue = vramUsed.HasValue && vramTotal is > 0
+            ? $"{Math.Min(100, vramUsed.Value / vramTotal.Value * 100).ToString("0.0", CultureInfo.InvariantCulture)}%"
+            : loc["Common.NotAvailable"];
+        var vramSubtitle = vramUsed.HasValue || vramTotal.HasValue
+            ? $"{Format.Bytes(vramUsed * 1024 * 1024)} / {Format.Bytes(vramTotal * 1024 * 1024)}"
+            : loc["Common.NotAvailable"];
 
         // 核心指标/硬件清单整体缺失 → 提示数据源异常（性能计数器/WMI 不可用等）
         var metricsMissing = !m.CpuUsagePercent.HasValue && !m.MemoryUsagePercent.HasValue && !m.GpuUsagePercent.HasValue;
@@ -74,21 +82,30 @@ public partial class OverviewPage : UserControl
             new(loc["Overview.Disk"], $"{loc["Overview.Down"]} {Format.Bps(m.DiskReadBytesPerSec)}  {loc["Overview.Up"]} {Format.Bps(m.DiskWriteBytesPerSec)}",
                 disk is null ? loc["Common.NotAvailable"] : $"{disk.Model}  {Format.Bytes(disk.CapacityBytes)}"),
             new(loc["Overview.Gpu"], Format.Pct(m.GpuUsagePercent), gpuSub),
+            new(loc["Overview.Vram"], vramValue, vramSubtitle),
             new(loc["Overview.Network"], $"{loc["Overview.Down"]} {Format.Bps(m.NetworkDownloadBps)}  {loc["Overview.Up"]} {Format.Bps(m.NetworkUploadBps)}",
                 netSub),
-            new(loc["Overview.Battery"], $"{Format.Pct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "⚡" : "")}",
-                bat is null ? loc["Common.NotAvailable"] : BatterySubtitle(bat, loc)),
             new(loc["Overview.CpuTemp"], cpuTemp.HasValue ? cpuTemp.Value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " °C" : loc["Common.NotAvailable"]),
             new(loc["Overview.GpuTemp"], gpuTemp.HasValue ? gpuTemp.Value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " °C" : loc["Common.NotAvailable"]),
             new(loc["Overview.Fan"], fanRpm.HasValue ? $"{fanRpm.Value.ToString("0", CultureInfo.InvariantCulture)} RPM" : loc["Common.NotAvailable"]),
             new(loc["Overview.Uptime"], Format.Uptime(m.SystemUptimeSeconds, loc.CurrentLanguage)),
-            new(loc["Overview.Motherboard"],
-                inv.Motherboard is { } mb ? $"{mb.Manufacturer} {mb.Product}".Trim() : loc["Common.NotAvailable"],
-                inv.Motherboard?.BiosVersion ?? loc["Common.NotAvailable"]),
+            new(loc["Overview.Battery"], $"{Format.Pct(m.BatteryChargePercent)} {(m.BatteryIsCharging == true ? "⚡" : "")}",
+                bat is null ? loc["Common.NotAvailable"] : BatterySubtitle(bat, loc)),
             new(loc["Overview.System"], inv.OsCaption ?? loc["Common.NotAvailable"], inv.OsVersion ?? loc["Common.NotAvailable"]),
         };
     }
 
+
+    /// <summary>按传感器名汇总 GPU 显存读数（MB），LHM 可能按 GPU 拆分输出。</summary>
+    private static double? GpuSensorSum(IReadOnlyList<SensorReading> sensors, string name)
+    {
+        var values = sensors
+            .Where(s => s.SensorName.Equals(name, StringComparison.OrdinalIgnoreCase) && s.Value.HasValue)
+            .Select(s => s.Value!.Value)
+            .Where(double.IsFinite)
+            .ToList();
+        return values.Count > 0 ? values.Sum() : null;
+    }
 
     /// <summary>挑选概览页主网卡：优先真实有线/无线网卡，排除 TAP/隧道/虚拟等。</summary>
     private static NetworkAdapterInfo? PickPrimaryNetwork(IReadOnlyList<NetworkAdapterInfo> adapters)

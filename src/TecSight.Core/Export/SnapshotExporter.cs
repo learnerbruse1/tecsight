@@ -128,13 +128,9 @@ public sealed class SnapshotExporter : ISnapshotExporter
         sb.AppendLine();
 
         sb.AppendLine("[传感器读数 Sensor Readings]");
-        foreach (var s in m.Sensors.Take(60))
+        foreach (var s in m.Sensors)
         {
             sb.AppendLine($"  {s.HardwareName} / {s.SensorName}: {s.Value?.ToString("0.#", CultureInfo.InvariantCulture) ?? "不可用 N/A"} {s.Unit}");
-        }
-        if (m.Sensors.Count > 60)
-        {
-            sb.AppendLine($"  … 其余 {m.Sensors.Count - 60} 条（详见界面传感器页）");
         }
         if (m.Sensors.Count == 0)
         {
@@ -152,7 +148,7 @@ public sealed class SnapshotExporter : ISnapshotExporter
             .ToList();
         return list.Count == 0
             ? ""
-            : string.Join("; ", list.Take(8)) + (list.Count > 8 ? " …" : "");
+            : string.Join("; ", list);
     }
 
     private static string Num(double? v) => v is double x && double.IsFinite(x) ? x.ToString("0.###", CultureInfo.InvariantCulture) : "";

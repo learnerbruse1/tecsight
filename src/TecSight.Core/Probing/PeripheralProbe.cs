@@ -1,4 +1,7 @@
 ﻿using System.Management;
+using System.Text;
+using Microsoft.Win32;
+using Nefarius.Utilities.DeviceManagement.PnP;
 using TecSight.Core.Models;
 
 namespace TecSight.Core;
@@ -10,6 +13,37 @@ namespace TecSight.Core;
 public static class PeripheralProbe
 {
     private static readonly System.Management.EnumerationOptions WmiEnumerationOptions = new() { Timeout = TimeSpan.FromSeconds(20) };
+
+    // DEVPKEY_Device_* 的厂商/描述/友好名称键并未在 Nefarius 6.0.0 中以常量暴露，这里按官方 devpkey.h 定义补上。
+    // GUID {A45C254E-DF1C-4EFD-8020-67D146A850E0}：DeviceDesc=2、Manufacturer=13、FriendlyName=14。
+    private static readonly DevicePropertyKey DevpkeyDeviceDesc =
+        CustomDeviceProperty.CreateCustomDeviceProperty(new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"), 2, typeof(string));
+    private static readonly DevicePropertyKey DevpkeyDeviceManufacturer =
+        CustomDeviceProperty.CreateCustomDeviceProperty(new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"), 13, typeof(string));
+    private static readonly DevicePropertyKey DevpkeyDeviceFriendlyName =
+        CustomDeviceProperty.CreateCustomDeviceProperty(new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"), 14, typeof(string));
+
+    private sealed record PnPRow(
+        string Name,
+        string? Description,
+        string? Manufacturer,
+        string? PnpClass,
+        string? Status,
+        string? PnpDeviceId,
+        string? Service,
+        string? DeviceId,
+        int? ConfigManagerErrorCode,
+        string? HardwareId);
+
+    private sealed record MonitorIdInfo(string? InstanceName, string? Manufacturer, string? Serial, int? Year);
+    private sealed record PnPBackfill(
+        string? Manufacturer,
+        string? Description,
+        string? DriverProvider,
+        string? DriverVersion,
+        string? DriverDate,
+        string? Service,
+        string? HardwareId);
 
     public static IReadOnlyList<PeripheralDevice> Scan()
     {
@@ -41,15 +75,9 @@ public static class PeripheralProbe
         {
             foreach (var device in HidSharp.DeviceList.Local.GetHidDevices())
             {
-                string name;
-                try
-                {
-                    name = device.GetProductName();
-                }
-                catch
-                {
-                    name = "";
-                }
+                var name = GetStringSafely(device.GetProductName) ?? "";
+                var manufacturer = GetStringSafely(device.GetManufacturer);
+                var serial = GetStringSafely(device.GetSerialNumber);
                 if (string.IsNullOrWhiteSpace(name))
                 {
                     name = $"HID {device.VendorID:X4}:{device.ProductID:X4}";
@@ -61,10 +89,11 @@ public static class PeripheralProbe
                 var key = "hid|" + name + "|" + (id ?? "");
                 if (!seen.Add(key)) continue;
                 var category = Classify("HIDClass", name, "HID Device");
-                list.Add(new PeripheralDevice(name, null, "HID Device", category, "HIDClass",
+                list.Add(new PeripheralDevice(name, manufacturer, "HID Device", category, "HIDClass",
                     Detail: null,
                     Status: "OK",
-                    PnpDeviceId: id));
+                    PnpDeviceId: id,
+                    SerialNumber: serial));
             }
         }
         catch
@@ -164,8 +193,9 @@ public static class PeripheralProbe
             .ToList();
         var refreshRate = refreshRates.Count == 1 ? refreshRates[0] : (int?)null;
 
-        var devices = SafeQuery("root\\cimv2",
-            "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID, DriverProvider, DriverVersion, DriverDate, Service, DeviceID, ConfigManagerErrorCode, HardwareID FROM Win32_PnPEntity",
+        // 第一遍：Win32_PnPEntity 决定有哪些外设（其驱动/厂商等字段经常为空）。
+        var rows = SafeQuery("root\\cimv2",
+            "SELECT Name, Description, Manufacturer, PNPClass, Status, PNPDeviceID, Service, DeviceID, ConfigManagerErrorCode, HardwareID FROM Win32_PnPEntity",
             o =>
             {
                 var name = GetString(o, "Name");
@@ -176,32 +206,323 @@ public static class PeripheralProbe
                 var id = GetString(o, "PNPDeviceID");
                 if (string.IsNullOrEmpty(cls) || !PeripheralClasses.Contains(cls)) return null; // 只留外设
                 if (cls == "HIDClass" && IsInternalHid(name, desc)) return null;               // 去掉系统 HID 内部件
-                var cat = Classify(cls, name, desc);
-                var key = cat + "|" + name + "|" + mfr + "|" + id;
-                if (!seen.Add(key)) return null; // 去重
-                string? resolution = null;
-                if (cat == "display")
-                {
-                    var mi = monitorInfo.FirstOrDefault(x => !string.IsNullOrEmpty(x.Id) && x.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
-                    if (mi is { Width: int w, Height: int h } && w > 0 && h > 0)
-                    {
-                        resolution = $"{w} × {h}";
-                    }
-                }
-                return new PeripheralDevice(name, mfr, desc, cat, cls, Detail: null,
+                return new PnPRow(
+                    name, desc, mfr, cls,
                     Status: GetString(o, "Status"),
                     PnpDeviceId: id,
-                    DriverProvider: GetString(o, "DriverProvider"),
-                    DriverVersion: GetString(o, "DriverVersion"),
-                    DriverDate: FormatCimDate(GetString(o, "DriverDate")),
                     Service: GetString(o, "Service"),
                     DeviceId: GetString(o, "DeviceID"),
                     ConfigManagerErrorCode: GetInt(o, "ConfigManagerErrorCode"),
-                    HardwareId: GetFirstString(o, "HardwareID"),
-                    Resolution: resolution,
-                    RefreshRate: refreshRate);
-            });
-        list.AddRange(devices.Where(d => d is not null)!);
+                    HardwareId: GetFirstString(o, "HardwareID"));
+            }).Where(r => r is not null).Cast<PnPRow>().ToList();
+
+        // 第二遍：仅在确实需要时取补充数据源，避免无显示器的机器也去触碰 root\wmi。
+        var hasDisplay = rows.Any(r => Classify(r.PnpClass, r.Name, r.Description) == "display");
+        var monitorIds = hasDisplay ? QueryMonitorIds() : null;
+
+        foreach (var row in rows)
+        {
+            var cat = Classify(row.PnpClass, row.Name, row.Description);
+            var key = cat + "|" + row.Name + "|" + row.Manufacturer + "|" + row.PnpDeviceId;
+            if (!seen.Add(key)) continue; // 去重
+
+            var manufacturer = row.Manufacturer;
+            var description = row.Description;
+            string? resolution = null;
+            double? deviceRefreshRate = null;
+            string? serial = null;
+            int? manufactureYear = null;
+            if (cat == "display")
+            {
+                deviceRefreshRate = refreshRate;
+                // 当前分辨率优先取 Win32_DesktopMonitor；拿不到时从注册表 EDID 的首选时序推导。
+                var mi = monitorInfo.FirstOrDefault(x =>
+                    !string.IsNullOrEmpty(x.Id) && x.Id.Equals(row.PnpDeviceId, StringComparison.OrdinalIgnoreCase));
+                if (mi is { Width: int w, Height: int h } && w > 0 && h > 0)
+                {
+                    resolution = $"{w} × {h}";
+                }
+
+                var edid = ReadRegistryEdid(row.PnpDeviceId);
+                if (edid is { Length: >= 128 } && IsEdidBlock(edid))
+                {
+                    if (ParsePreferredMode(edid) is { } mode)
+                    {
+                        resolution ??= $"{mode.Width} × {mode.Height}";
+                        deviceRefreshRate ??= mode.RefreshRate;
+                    }
+                    // EDID 的 EISA 厂商码比 WMI 的“(标准监视器类型)”更具体，优先采用。
+                    manufacturer = DecodeEisaManufacturer(edid) ?? manufacturer;
+                    manufactureYear ??= ParseManufactureYear(edid);
+                }
+
+                // EDID 字符串里的厂商/序列号/出厂年份（WmiMonitorID），比注册表字节更友好。
+                if (monitorIds is not null &&
+                    monitorIds.TryGetValue(NormalizeMonitorInstanceName(row.PnpDeviceId), out var monitor))
+                {
+                    manufacturer = monitor.Manufacturer ?? manufacturer;
+                    serial ??= monitor.Serial;
+                    manufactureYear ??= monitor.Year;
+                }
+            }
+
+            // Win32_PnPEntity 的驱动字段与厂商经常为空，这里用 SetupAPI 统一设备属性回填。
+            // （Win32_PnPSignedDriver 虽然字段齐全，但一次枚举就要 5 秒以上，故不采用。）
+            string? driverProvider = null;
+            string? driverVersion = null;
+            string? driverDate = null;
+            var service = row.Service;
+            var hardwareId = row.HardwareId;
+            if (manufacturer is null || description is null || driverProvider is null || driverVersion is null
+                || driverDate is null || service is null || hardwareId is null)
+            {
+                var extra = ReadPnPBackfill(row.PnpDeviceId);
+                if (extra is not null)
+                {
+                    manufacturer ??= extra.Manufacturer;
+                    description ??= extra.Description;
+                    driverProvider ??= extra.DriverProvider;
+                    driverVersion ??= extra.DriverVersion;
+                    driverDate ??= extra.DriverDate;
+                    service ??= extra.Service;
+                    hardwareId ??= extra.HardwareId;
+                }
+            }
+
+            list.Add(new PeripheralDevice(
+                row.Name, manufacturer, description, cat, row.PnpClass,
+                Detail: null,
+                Status: row.Status,
+                PnpDeviceId: row.PnpDeviceId,
+                DriverProvider: driverProvider,
+                DriverVersion: driverVersion,
+                DriverDate: driverDate,
+                Service: service,
+                DeviceId: row.DeviceId,
+                ConfigManagerErrorCode: row.ConfigManagerErrorCode,
+                HardwareId: hardwareId,
+                Resolution: resolution,
+                RefreshRate: deviceRefreshRate,
+                SerialNumber: serial,
+                ManufactureYear: manufactureYear));
+        }
+    }
+
+    /// <summary>从 WmiMonitorID（root\wmi）取 EDID 字符串中的厂商/序列号/出厂年份。</summary>
+    private static Dictionary<string, MonitorIdInfo>? QueryMonitorIds()
+    {
+        try
+        {
+            var rows = SafeQuery("root\\wmi",
+                "SELECT InstanceName, ManufacturerName, SerialNumberID, YearOfManufacture FROM WmiMonitorID WHERE Active=TRUE",
+                o =>
+                {
+                    var year = GetUInt16(o, "YearOfManufacture");
+                    return new MonitorIdInfo(
+                        GetString(o, "InstanceName"),
+                        DecodeEdidString(GetRaw(o, "ManufacturerName")),
+                        DecodeEdidString(GetRaw(o, "SerialNumberID")),
+                        year.HasValue && year.Value >= 1990 ? (int?)year.Value : null);
+                });
+            return rows
+                .Where(x => !string.IsNullOrWhiteSpace(x.InstanceName))
+                .GroupBy(x => NormalizeMonitorInstanceName(x.InstanceName), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>用 SetupAPI 统一设备属性兜底读取 WMI 拿不到的字段（厂商/描述/驱动/服务/硬件 ID）。</summary>
+    private static PnPBackfill? ReadPnPBackfill(string? instanceId)
+    {
+        if (string.IsNullOrWhiteSpace(instanceId)) return null;
+        try
+        {
+            var device = PnPDevice.GetDeviceByInstanceId(instanceId.Trim());
+            return new PnPBackfill(
+                Manufacturer: GetStringProperty(device, DevpkeyDeviceManufacturer),
+                Description: GetStringProperty(device, DevpkeyDeviceDesc)
+                             ?? GetStringProperty(device, DevicePropertyKey.Device_BusReportedDeviceDesc)
+                             ?? GetStringProperty(device, DevpkeyDeviceFriendlyName),
+                DriverProvider: GetStringProperty(device, DevicePropertyKey.Device_DriverProvider),
+                DriverVersion: GetStringProperty(device, DevicePropertyKey.Device_DriverVersion),
+                DriverDate: GetDriverDate(device),
+                Service: GetStringProperty(device, DevicePropertyKey.Device_Service),
+                HardwareId: GetFirstHardwareId(device));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? GetStringProperty(PnPDevice device, DevicePropertyKey key)
+    {
+        try
+        {
+            var value = device.GetProperty<string>(key);
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? GetDriverDate(PnPDevice device)
+    {
+        try
+        {
+            var value = device.GetProperty<DateTimeOffset>(DevicePropertyKey.Device_DriverDate);
+            return value.Year >= 1601 ? value.ToString("yyyy-MM-dd HH:mm") : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? GetFirstHardwareId(PnPDevice device)
+    {
+        try
+        {
+            return device.GetProperty<string[]>(DevicePropertyKey.Device_HardwareIds)
+                ?.FirstOrDefault(s => !string.IsNullOrWhiteSpace(s));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>从注册表枚举树读取显示器的原始 EDID（无 WMI 依赖，任何权限都能读）。</summary>
+    private static byte[]? ReadRegistryEdid(string? instanceId)
+    {
+        if (string.IsNullOrWhiteSpace(instanceId)) return null;
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(
+                $@"SYSTEM\CurrentControlSet\Enum\{instanceId.Trim()}\Device Parameters");
+            return key?.GetValue("EDID") as byte[];
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool IsEdidBlock(byte[] edid)
+        => edid.Length >= 128 && edid[0] == 0x00 && edid[1] == 0xFF && edid[2] == 0xFF
+           && edid[3] == 0xFF && edid[4] == 0xFF && edid[5] == 0xFF && edid[6] == 0xFF && edid[7] == 0x00;
+
+    /// <summary>解析 EDID 首选详细时序描述符（偏移 54），得到原生分辨率与刷新率。</summary>
+    public static (int Width, int Height, double RefreshRate)? ParsePreferredMode(byte[]? edid)
+    {
+        if (edid is null || edid.Length < 72) return null;
+        var pixelClockKhz = edid[54] | (edid[55] << 8);
+        if (pixelClockKhz <= 0) return null;
+        var hActive = edid[56] | ((edid[58] >> 4) & 0x0F) << 8;
+        var hBlank = edid[57] | (edid[58] & 0x0F) << 8;
+        var vActive = edid[59] | ((edid[61] >> 4) & 0x0F) << 8;
+        var vBlank = edid[60] | (edid[61] & 0x0F) << 8;
+        if (hActive <= 0 || vActive <= 0) return null;
+        var hTotal = hActive + hBlank;
+        var vTotal = vActive + vBlank;
+        if (hTotal <= 0 || vTotal <= 0) return null;
+        var refresh = pixelClockKhz * 10000.0 / (hTotal * vTotal);
+        if (refresh <= 0 || refresh > 1000 || !double.IsFinite(refresh)) return null;
+        return (hActive, vActive, refresh);
+    }
+
+    /// <summary>解码 EDID 头部的 3 字符 EISA 厂商代码（如 BOE/DEL/LGD）。</summary>
+    public static string? DecodeEisaManufacturer(byte[]? edid)
+    {
+        if (edid is null || edid.Length < 10) return null;
+        var b8 = edid[8];
+        var b9 = edid[9];
+        var c1 = (char)('A' - 1 + ((b8 >> 2) & 0x1F));
+        var c2 = (char)('A' - 1 + (((b8 & 0x03) << 3) | ((b9 >> 5) & 0x07)));
+        var c3 = (char)('A' - 1 + (b9 & 0x1F));
+        if (c1 is < 'A' or > 'Z' || c2 is < 'A' or > 'Z' || c3 is < 'A' or > 'Z') return null;
+        return (c1.ToString() + c2 + c3).Trim();
+    }
+
+    /// <summary>EDID 第 17 字节为出厂年份偏移（0 = 1990）。</summary>
+    public static int? ParseManufactureYear(byte[]? edid)
+    {
+        if (edid is null || edid.Length < 18) return null;
+        var year = edid[17] + 1990;
+        return year is >= 1990 and <= 2100 ? year : null;
+    }
+
+    /// <summary>WmiMonitorID 的 InstanceName 形如 DISPLAY\…\UID0_0，去掉末尾的“_序号”。</summary>
+    private static string NormalizeMonitorInstanceName(string? instanceName)
+    {
+        if (string.IsNullOrWhiteSpace(instanceName)) return "";
+        var s = instanceName.Trim();
+        var i = s.Length;
+        while (i > 0 && char.IsDigit(s[i - 1])) i--;
+        return i < s.Length && i > 0 && s[i - 1] == '_' ? s[..(i - 1)] : s;
+    }
+
+    /// <summary>WmiMonitorID 的字符串字段是 UInt16[]（每元素一个 16 位字符），兼容 byte[]/char[] 形式。</summary>
+    private static string? DecodeEdidString(object? value)
+    {
+        if (value is null) return null;
+        try
+        {
+            var sb = new StringBuilder();
+            switch (value)
+            {
+                case ushort[] wide:
+                    foreach (var c in wide)
+                    {
+                        if (c == 0) break;
+                        sb.Append((char)c);
+                    }
+                    break;
+                case byte[] bytes:
+                    foreach (var b in bytes)
+                    {
+                        if (b == 0) break;
+                        sb.Append((char)b);
+                    }
+                    break;
+                case char[] chars:
+                    foreach (var c in chars)
+                    {
+                        if (c == '\0') break;
+                        sb.Append(c);
+                    }
+                    break;
+                case string s:
+                    sb.Append(s);
+                    break;
+            }
+            var result = sb.ToString().Trim();
+            return result.Length == 0 ? null : result;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>安全调用可能打开设备句柄的字符串读取（HID 厂商/序列号等）。</summary>
+    private static string? GetStringSafely(Func<string?> getter)
+    {
+        try
+        {
+            var value = getter();
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static void ScanKeyboards(List<PeripheralDevice> list, HashSet<string> seen)
@@ -337,8 +658,19 @@ public static class PeripheralProbe
 
     private static string? FormatCimDate(string? d)
     {
-        if (string.IsNullOrEmpty(d) || d.Length < 8) return d;
-        return $"{d[..4]}-{d.Substring(4, 2)}-{d.Substring(6, 2)}";
+        // CIM 日期为 yyyyMMddHHmmss.ffffff+zzz：保留到分钟，避免像旧实现那样只截前 8 位丢时间。
+        if (string.IsNullOrEmpty(d) || d.Length < 14) return d;
+        try
+        {
+            var dt = new DateTime(
+                int.Parse(d.Substring(0, 4)), int.Parse(d.Substring(4, 2)), int.Parse(d.Substring(6, 2)),
+                int.Parse(d.Substring(8, 2)), int.Parse(d.Substring(10, 2)), int.Parse(d.Substring(12, 2)));
+            return dt.ToString("yyyy-MM-dd HH:mm");
+        }
+        catch
+        {
+            return d;
+        }
     }
 
     private static List<T> SafeQuery<T>(string scope, string query, Func<ManagementBaseObject, T> map)
@@ -367,6 +699,16 @@ public static class PeripheralProbe
         catch { return null; }
     }
 
+    private static object? GetRaw(ManagementBaseObject o, string p)
+    {
+        try
+        {
+            var value = o[p];
+            return value is DBNull ? null : value;
+        }
+        catch { return null; }
+    }
+
     private static string? GetFirstString(ManagementBaseObject o, string p)
     {
         try
@@ -386,6 +728,17 @@ public static class PeripheralProbe
             var value = o[p];
             if (value is null || value is DBNull) return null;
             return Convert.ToInt32(value);
+        }
+        catch { return null; }
+    }
+
+    private static ushort? GetUInt16(ManagementBaseObject o, string p)
+    {
+        try
+        {
+            var value = o[p];
+            if (value is null || value is DBNull) return null;
+            return Convert.ToUInt16(value);
         }
         catch { return null; }
     }

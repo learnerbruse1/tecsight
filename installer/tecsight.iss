@@ -1,6 +1,6 @@
 ; TecSight 安装程序（Inno Setup 6）
 #define MyAppName "TecSight"
-#define MyAppVersion "2.0.0"
+#define MyAppVersion "2.1.0"
 #define MyAppPublisher "TecSight contributors"
 #define MyAppExeName "TecSight.App.exe"
 #define MyAppId "{{2EF3FFAB-9293-4D9D-AB74-533A1A52FE40}}"

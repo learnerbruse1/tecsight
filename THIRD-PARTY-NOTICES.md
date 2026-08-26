@@ -37,6 +37,13 @@ LibreHardwareMonitor 的以下传递依赖同样随发布产物分发：
 - 用途 Used for: HID 设备枚举与 VID/PID 识别
 - Apache-2.0 全文: <https://www.apache.org/licenses/LICENSE-2.0>
 
+## Nefarius.Utilities.DeviceManagement
+- 来源 Source: <https://github.com/nefarius/Nefarius.Utilities.DeviceManagement>
+- 许可证 License: **MIT**
+- 版权 Copyright: © Benjamin Höglinger-Stelzer
+- 用途 Used for: 经 SetupAPI 统一设备属性读取外设的厂商 / 描述 / 驱动提供者 / 驱动版本 / 驱动日期 / 服务等字段
+- MIT 全文: <https://licenses.nuget.org/MIT>
+
 ## Vanara.PInvoke.Kernel32
 - 来源 Source: <https://github.com/dahall/Vanara>
 - 许可证 License: **MIT**

@@ -8,7 +8,7 @@
 
 - **硬件清单**：CPU（架构/缓存/插槽/频率/ID）、内存（SPD 全字段）、磁盘（介质/总线/固件/健康度/SMART）、显卡（显存/驱动）、主板与系统（BIOS/固件/安装信息）、网卡（速率/IP/网关/DNS）、电池（容量/循环/化学/电压）、显示器（EDID）、音频 / USB / 键盘 / 鼠标 / 打印机
 - **运行指标**：CPU 占用与实时频率、内存、GPU 占用与显存、磁盘 I/O、网络吞吐、电量、运行时长、进程排行，**1 秒实时刷新**（概览显示最近更新时刻）
-- **传感器与健康度**：温度 / 风扇 / 电压（LibreHardwareMonitor）；磁盘 SMART 属性与健康度；CPU 温度/风扇等需内核驱动的传感器可经「以管理员权限重启」读取
+- **传感器与健康度**：温度 / 风扇 / 电压（LibreHardwareMonitor + Windows ACPI 热区兜底）；磁盘 SMART 属性与健康度；CPU 温度/风扇在部分机型上需管理员权限，个别硬件未暴露接口时任何权限都读不到（显示为不可用）
 - **历史曲线**：最近 1 小时趋势（环形缓冲，内存占用极小）
 - **外设识别**：热插拔设备自动分类显示（存储/键盘/鼠标/摄像头/音频/蓝牙/打印机/USB/物理网卡），自动刷新 + 手动刷新，按 PNP ID 去重
 - **导出**：JSON / TXT / HTML / 复制摘要 / 兼容性自检报告 / 历史 CSV
@@ -17,7 +17,7 @@
 ## 界面
 
 - 左侧导航：概览 / CPU / 内存 / 磁盘 / 显卡 / 主板与系统 / 网络 / 电池 / 传感器 / 进程 / 外设
-- 概览页：12 张卡片（各硬件型号 + 实时使用率/频率/温度/风扇/运行时长/更新时刻）
+- 概览页：12 张卡片（CPU / 内存 / 磁盘 / GPU / 显存使用率 / 网络 / 温度 / 风扇 / 运行时长 / 电池 / 系统）
 - 详情页：完整清单 + 实时数值 + 历史曲线（1 小时）
 - 传感器页：全部传感器读数，可勾选「隐藏网络过滤器噪音」精简显示（偏好会被记住）
 - 进程页：Top 进程 CPU/内存（含 PID）与进程总数
@@ -44,12 +44,12 @@ dotnet publish src/TecSight.App -c Release -r win-x64 --self-contained true \
 
 发布产物：`publish/TecSight.App.exe`（自包含单文件，免安装）。也可直接运行 `scripts/publish.ps1`；一键构建+测试用 `scripts/test.ps1`。
 
-**安装程序**（需 [Inno Setup 6](https://jrsoftware.org/isdl.php)）：`./scripts/build-installer.ps1` → 生成 `installer/Output/TecSight-Setup-2.0.0-Windows-x64.exe`（中英双语向导、开始菜单/桌面快捷方式、卸载器，免管理员权限）。
+**安装程序**（需 [Inno Setup 6](https://jrsoftware.org/isdl.php)）：`./scripts/build-installer.ps1` → 生成 `installer/Output/TecSight-Setup-2.1.0-Windows-x64.exe`（中英双语向导、开始菜单/桌面快捷方式、卸载器，免管理员权限）。
 
 ## 技术栈
 
 - C# / .NET 10 / WPF
-- 数据源：性能计数器 + 原生 API、WMI、[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)（MPL-2.0）、[HidSharp](https://software.seekye.com/hidsharp)（Apache-2.0）、[Vanara](https://github.com/dahall/Vanara)（MIT）、[ManagedNativeWifi](https://github.com/emoacht/ManagedNativeWifi)（MIT）
+- 数据源：性能计数器 + 原生 API、WMI、[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)（MPL-2.0）、[HidSharp](https://software.seekye.com/hidsharp)（Apache-2.0）、[Vanara](https://github.com/dahall/Vanara)（MIT）、[ManagedNativeWifi](https://github.com/emoacht/ManagedNativeWifi)（MIT）、[Nefarius.Utilities.DeviceManagement](https://github.com/nefarius/Nefarius.Utilities.DeviceManagement)（MIT）
 
 ## 借鉴与致谢
 
@@ -61,4 +61,4 @@ dotnet publish src/TecSight.App -c Release -r win-x64 --self-contained true \
 ## 许可证
 
 - 本项目代码：MIT（见 [LICENSE](LICENSE)）
-- 集成 [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)（MPL-2.0）、[HidSharp](https://software.seekye.com/hidsharp)（Apache-2.0）、[Vanara](https://github.com/dahall/Vanara)（MIT）、[ManagedNativeWifi](https://github.com/emoacht/ManagedNativeWifi)（MIT）；详见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+- 集成 [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)（MPL-2.0）、[HidSharp](https://software.seekye.com/hidsharp)（Apache-2.0）、[Vanara](https://github.com/dahall/Vanara)（MIT）、[ManagedNativeWifi](https://github.com/emoacht/ManagedNativeWifi)（MIT）、[Nefarius.Utilities.DeviceManagement](https://github.com/nefarius/Nefarius.Utilities.DeviceManagement)（MIT）；详见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)

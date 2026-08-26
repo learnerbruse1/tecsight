@@ -96,28 +96,26 @@ public static class HtmlReport
 
         sb.AppendLine("<h2>其他设备</h2><table><tr><th>类别</th><th>数量</th><th>设备</th></tr>");
         Row(sb, "显示器", inv.Displays.Count.ToString(), string.Join("；", inv.Displays.Select(d => $"{d.Manufacturer} {d.Name} {d.SerialNumber} {d.ManufactureYear}".Trim())));
-        Row(sb, "音频", inv.AudioDevices.Count.ToString(), string.Join("；", inv.AudioDevices.Take(8).Select(a => a.Name)));
-        Row(sb, "USB", inv.UsbDevices.Count.ToString(), string.Join("；", inv.UsbDevices.Take(8).Select(u => u.Name)));
+        Row(sb, "音频", inv.AudioDevices.Count.ToString(), string.Join("；", inv.AudioDevices.Select(a => a.Name)));
+        Row(sb, "USB", inv.UsbDevices.Count.ToString(), string.Join("；", inv.UsbDevices.Select(u => u.Name)));
         Row(sb, "键盘 / 鼠标", $"{inv.Keyboards.Count} / {inv.PointingDevices.Count}",
-            $"{string.Join("；", inv.Keyboards.Take(8).Select(k => k.Name))} / {string.Join("；", inv.PointingDevices.Take(8).Select(m => m.Name))}");
+            $"{string.Join("；", inv.Keyboards.Select(k => k.Name))} / {string.Join("；", inv.PointingDevices.Select(m => m.Name))}");
         Row(sb, "打印机", inv.Printers.Count.ToString(), string.Join("；", inv.Printers.Select(p => p.Name)));
         sb.AppendLine("</table>");
 
         sb.AppendLine("<h2>传感器读数</h2><table><tr><th>硬件</th><th>传感器</th><th>值</th></tr>");
-        foreach (var s2 in m.Sensors.Take(60))
+        foreach (var s2 in m.Sensors)
             sb.AppendLine($"<tr><td>{H(s2.HardwareName)}</td><td>{H(s2.SensorName)}</td><td>{s2.Value?.ToString("0.#", CultureInfo.InvariantCulture) ?? "N/A"} {H(s2.Unit)}</td></tr>");
-        if (m.Sensors.Count > 60) sb.AppendLine($"<tr><td colspan=\"3\">… 其余 {m.Sensors.Count - 60} 条</td></tr>");
         if (m.Sensors.Count == 0) sb.AppendLine("<tr><td colspan=\"3\">无传感器数据</td></tr>");
         sb.AppendLine("</table>");
 
         if (m.SmartAttributes.Count > 0)
         {
             sb.AppendLine("<h2>SMART 属性</h2><table><tr><th>磁盘</th><th>ID</th><th>名称</th><th>当前值</th><th>最差值</th><th>阈值</th><th>原始值</th></tr>");
-            foreach (var a in m.SmartAttributes.Take(60))
+            foreach (var a in m.SmartAttributes)
             {
                 sb.AppendLine($"<tr><td>{H(a.DiskName)}</td><td>{a.Id}</td><td>{H(a.Name)}</td><td>{a.CurrentValue?.ToString("0", CultureInfo.InvariantCulture)}</td><td>{a.Worst?.ToString()}</td><td>{a.Threshold}</td><td>{H(a.RawValue)}</td></tr>");
             }
-            if (m.SmartAttributes.Count > 60) sb.AppendLine($"<tr><td colspan=\"7\">… 其余 {m.SmartAttributes.Count - 60} 条</td></tr>");
             sb.AppendLine("</table>");
         }
 

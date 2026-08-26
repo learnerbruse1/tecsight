@@ -11,9 +11,14 @@
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
     <PackageReference Include="HidSharp" Version="2.6.4" />
     <PackageReference Include="ManagedNativeWifi" Version="3.0.2" />
+    <PackageReference Include="Nefarius.Utilities.DeviceManagement" Version="6.0.0" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.10" />
     <PackageReference Include="System.Management" Version="10.0.10" />
     <PackageReference Include="Vanara.PInvoke.Kernel32" Version="4.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TecSight.Core.Tests" />
   </ItemGroup>
 
 </Project>
